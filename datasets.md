@@ -14,7 +14,7 @@ Access: http://marathon.csee.usf.edu/Mammography/Database.html
 
 **Multiple sclerosis lesion segmentation**
 A collection of brain MRI scans to detect MS lesions.
-Access: http://www.ia.unc.edu/MSseg/
+Access: http://www.medinfo.cs.ucy.ac.cy/index.php/downloads/datasets
 
 **Multimodal Brain Tumor Segmentation Challenge**
 Large data set of brain tumor magnetic resonance scans. They’ve been extending this data set and challenge each year since 2012.
