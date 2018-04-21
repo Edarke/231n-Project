@@ -2,9 +2,10 @@ import glob
 from shutil import copy2
 import os
 import numpy as np
-
 import datetime
 import tensorflow as tf
+
+
 
 class Config(object):
     def __init__(self):
@@ -14,7 +15,7 @@ class Config(object):
         self.mean = 33
         self.std = 36
         self.output_path = "logs"
-
+        self.imagenet_mean = np.array([103.939, 116.779, 123.68])
 
     @staticmethod
     def __create_experiment(name):
