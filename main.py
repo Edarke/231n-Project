@@ -20,7 +20,6 @@ def preprocess(data, labels):
     # Crop or pad to 224x224x224
     h_diff = 224 - H
     w_diff = 224 - W
-    d_diff = 224 - D
 
     pad_dims = [(0,0)]
     if h_diff > 0:
@@ -87,14 +86,20 @@ resnet = tf.keras.applications.ResNet50(
     pooling=None,
 )
 #
-resnet_output = resnet.graph.get_tensor_by_name("avg_pool/AvgPool:0") # (b,
+resnet_output5 = resnet.graph.get_tensor_by_name("activation_49/Relu:0") # (b, 7, 7, 2048)
+resnet_output4 = resnet.graph.get_tensor_by_name("activation_46/Relu:0") # (b, 14, 14, f)
+resnet_output3 = resnet.graph.get_tensor_by_name("activation_22/Relu:0") # (b, 28, 28, f)
+resnet_output2 = resnet.graph.get_tensor_by_name("activation_10/Relu:0") # (b, 56, 56, f)
+resnet_output1 = resnet.graph.get_tensor_by_name("activation/Relu:0")    # (b, 112, 112, f)
+resnet_output0 = input                                                   # (b, 224, 224, 3)
+
+
 print(resnet_output.shape)
 
 with tf.Session() as sess:
     tf.summary.FileWriter(config.output_path, sess.graph)
 
 
-print([l.name for l in resnet.graph.get_operations()])
 
 #
 # class Net2D(object):
