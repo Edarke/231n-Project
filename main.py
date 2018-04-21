@@ -14,6 +14,42 @@ def preprocess(data, labels):
     :param labels:  (batch, height, width, depth)
     :return: tuple of processed tuple list data, and labels
     """
+
+    N, H, W, D = data.shape
+
+    # Crop or pad to 224x224x224
+    h_diff = 224 - H
+    w_diff = 224 - W
+    d_diff = 224 - D
+
+    pad_dims = [(0,0)]
+    if h_diff > 0:
+        pad_top = h_diff//2
+        pad_bottom = h_diff//2 + h_diff%2
+        pad_dims.append((pad_top, pad_bottom))
+    elif h_diff < 0:
+        slice_top = -1 * h_diff//2
+        slice_bottom = -1 * (h_diff//2 - h_diff%2)
+        data = data[:,slice_top:-slice_bottom+1,:,:]
+        labels = labels[:,slice_top:-slice_bottom+1,:,:]
+        pad_dims.append((0,0))
+
+    if w_diff > 0:
+        pad_left = w_diff//2
+        pad_right = w_diff//2 + w_diff%2
+        pad_dims.append((pad_left, pad_right))
+    elif w_diff < 0:
+        slice_left = -1 * w_diff//2
+        slice_right = -1 * (w_diff//2 - w_diff%2)
+        data = data[:,:,slice_left:-slice_right+1,:]
+        labels = labels[:,:,slice_left:-slice_right+1,:]
+        pad_dims.append((0,0))
+
+    pad_dims.append((0,0))
+
+    data = np.pad(data, pad_dims, mode='constant', constant_values=0)
+    labels = np.pad(labels, pad_dims, mode='constant', constant_values=0)
+
     return (data - config.mean) / config.std, labels
 
 
@@ -23,6 +59,9 @@ if __name__ == '__main__':
 reader = ATLASReader()
 ids = reader.get_case_ids()
 
+case = reader.get_case(ids[0])
+case_data = np.expand_dims(case['data'], 0)
+case_labels = np.expand_dims(case['labels'], 0)
 
 
 
