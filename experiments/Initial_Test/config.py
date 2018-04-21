@@ -3,14 +3,12 @@ from shutil import copy2
 import os
 
 import datetime
-import tensorflow as tf
+
 
 class Config(object):
     def __init__(self):
         self.experiment_name = 'Initial Test'
         self.results_path = self.__create_experiment(self.experiment_name)
-        self.dtype = tf.float16
-
 
     @staticmethod
     def __create_experiment(name):
