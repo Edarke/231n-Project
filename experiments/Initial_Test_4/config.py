@@ -1,7 +1,6 @@
 import glob
 from shutil import copy2
 import os
-import numpy as np
 
 import datetime
 import tensorflow as tf
@@ -13,7 +12,6 @@ class Config(object):
         self.dtype = tf.float16
         self.mean = 33
         self.std = 36
-        self.output_path = "logs"
 
 
     @staticmethod
@@ -43,21 +41,3 @@ class Config(object):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M")
         open(os.path.join(unique, timestamp), 'a').close()
         return unique
-
-
-
-
-def compute_mean(reader, ids):
-    mean = 0
-    std = 0
-    for id in ids:
-        d = reader.get_case(ids[0])
-        label = d['labels']
-        data = d['data']
-        mean += np.mean(data)
-        std += np.std(data)
-
-    mean /= len(ids)
-    std /= len(ids)
-    print("Mean is %d, Std deviation is %d" % (mean, std))
-    return mean, std

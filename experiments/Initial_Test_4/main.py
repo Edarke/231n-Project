@@ -14,7 +14,7 @@ def preprocess(data, labels):
     :param labels:  (batch, height, width, depth)
     :return: tuple of processed tuple list data, and labels
     """
-    return (data - config.mean) / config.std, labels
+    return (data - config.mean) / config.std, label
 
 
 if __name__ == '__main__':
@@ -23,8 +23,19 @@ if __name__ == '__main__':
 reader = ATLASReader()
 ids = reader.get_case_ids()
 
+mean = 0
+std = 0
+for id in ids:
+    d = reader.get_case(ids[0])
+    label = d['labels']
+    data = d['data']
+    mean += np.mean(data)
+    std += np.std(data)
 
+mean /= len(ids)
+std /= len(ids)
 
+print("Mean is %d, Std deviation is %d" % (mean, std))
 
 height, width, depth = reader.get_case(ids[0])['labels'].shape
 print('Shape is ', (height, width, depth))
@@ -38,8 +49,6 @@ input = tf.stack([input, input, input], axis=3)
 
 
 
-
-
 resnet = tf.keras.applications.ResNet50(
     include_top=False,
     weights='imagenet',
@@ -47,15 +56,9 @@ resnet = tf.keras.applications.ResNet50(
   #  input_shape=None,
     pooling=None,
 )
-#
-resnet_output = resnet.graph.get_tensor_by_name("avg_pool/AvgPool:0") # (b,
-print(resnet_output.shape)
-
-with tf.Session() as sess:
-    tf.summary.FileWriter(config.output_path, sess.graph)
 
 
-print([l.name for l in resnet.graph.get_operations()])
+print([l.name for l in resnet.layers])
 
 #
 # class Net2D(object):

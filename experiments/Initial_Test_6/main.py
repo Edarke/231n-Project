@@ -14,7 +14,7 @@ def preprocess(data, labels):
     :param labels:  (batch, height, width, depth)
     :return: tuple of processed tuple list data, and labels
     """
-    return (data - config.mean) / config.std, labels
+    return (data - config.mean) / config.std, label
 
 
 if __name__ == '__main__':
@@ -47,15 +47,15 @@ resnet = tf.keras.applications.ResNet50(
   #  input_shape=None,
     pooling=None,
 )
-#
-resnet_output = resnet.graph.get_tensor_by_name("avg_pool/AvgPool:0") # (b,
+
+resnet_output = resnet.graph.get_tensor_by_name("avg_pool:0")
 print(resnet_output.shape)
 
 with tf.Session() as sess:
     tf.summary.FileWriter(config.output_path, sess.graph)
 
 
-print([l.name for l in resnet.graph.get_operations()])
+print([l.name for l in resnet.layers])
 
 #
 # class Net2D(object):
