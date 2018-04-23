@@ -79,19 +79,66 @@ resnet = tf.keras.applications.ResNet50(
 #
 
 resnet_output5 = resnet.graph.get_tensor_by_name("activation_48/Relu:0") # (b, 7, 7, 2048)
-resnet_output4 = resnet.graph.get_tensor_by_name("activation_39/Relu:0") # (b, 14, 14, f)
-resnet_output3 = resnet.graph.get_tensor_by_name("activation_21/Relu:0") # (b, 28, 28, f)
-resnet_output2 = resnet.graph.get_tensor_by_name("activation_9/Relu:0") # (b, 56, 56, f)
-resnet_output1 = resnet.graph.get_tensor_by_name("activation/Relu:0")    # (b, 112, 112, f)
+resnet_output4 = resnet.graph.get_tensor_by_name("activation_39/Relu:0") # (b, 14, 14, 1024)
+resnet_output3 = resnet.graph.get_tensor_by_name("activation_21/Relu:0") # (b, 28, 28, 512)
+resnet_output2 = resnet.graph.get_tensor_by_name("activation_9/Relu:0") # (b, 56, 56, 256)
+resnet_output1 = resnet.graph.get_tensor_by_name("activation/Relu:0")    # (b, 112, 112, 64)
 resnet_output0 = input                                                   # (b, 224, 224, 3)
 
-print(resnet_output0.shape)
-print(resnet_output1.shape)
-print(resnet_output2.shape)
-print(resnet_output3.shape)
-print(resnet_output4.shape)
-print(resnet_output5.shape)
 
+print('input shape: ' + str(resnet_output0.shape))
+print('resnet_output1 shape: ' + str(resnet_output1.shape))
+print('resnet_output2 shape: ' + str(resnet_output2.shape))
+print('resnet_output3 shape: ' + str(resnet_output3.shape))
+print('resnet_output4 shape: ' + str(resnet_output4.shape))
+print('resnet_output5 shape: ' + str(resnet_output5.shape))
+
+# Transpose Layer 4: (N, 7, 7, 2048) -> (N, 14, 14, 1024)
+# Transpose Layer 3: (N, 14, 14, 1024) -> (N, 28, 28, 512)
+# Transpose Layer 2: (N, 28, 28, 512) -> (N, 56, 56, 256)
+# Transpose Layer 1: (N, 56, 56, 256) -> (N, 112, 112, 64)
+
+resnet_outputs = [resnet_output4, resnet_output3, resnet_output2, resnet_output1]
+filter_sizes = [1024, 512, 256, 64, 3]
+
+in_layer = resnet_output5
+for i, filter_size, resnet_output in zip(range(len(filter_sizes)), filter_sizes, resnet_outputs):
+    # Transpose convolution to get (N, H/2, W/2, filter_size)
+    t_conv = tf.layers.conv2d_transpose(
+        in_layer,
+        filter_size,
+        (3, 3),
+        strides=(2, 2),
+        activation=tf.nn.relu)
+
+    # Stack with output of 4th layer of ResNet to get (N, H/2, W/2, filter_size * 2)
+    t_conv_stacked = tf.concat([resnet_output, t_conv], axis=3)
+
+    # Convolutions to decrease number of filters to 1024; back to (N, H/2, W/2, filter_size)
+    t_conv_a = tf.layers.conv2d(
+        inputs = t_conv_stacked,
+        filters = filter_size,
+        kernel_size = (3, 3),
+        strides = (1, 1),
+        activation = tf.nn.relu)
+
+    in_layer = t_conv_a
+
+    print('output of transpose layer ' + str(i) + ': ' + str(in_layer.shape))
+
+#
+# Output Layer: (N, 112, 112, 64) -> (N, 224, 224, 1)
+#
+
+# Transpose convolution to get (N, 224, 224, 1)
+output_layer = tf.layers.conv2d_transpose(
+    inputs = in_layer,
+    filters = 1,
+    kernel_size = (3, 3),
+    strides = (2, 2),
+    activation = tf.nn.relu)
+
+print('output_layer shape: ' + str(output_layer.shape))
 
 with tf.Session() as sess:
     tf.summary.FileWriter(config.output_path, sess.graph)
