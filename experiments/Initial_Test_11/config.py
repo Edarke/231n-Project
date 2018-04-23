@@ -41,7 +41,7 @@ class Config(object):
             copy2(path, unique)
 
         # Delete old tensorboard files
-        tf_event_files = glob.glob('logs/*')
+        tf_event_files = glob.glob('/logs/*')
         sorted(tf_event_files)
         for f in tf_event_files[:-1]:
             os.remove(f)
