@@ -6,7 +6,6 @@ import datetime
 import tensorflow as tf
 
 
-
 class Config(object):
     def __init__(self):
         self.experiment_name = 'Initial Test'
@@ -16,6 +15,7 @@ class Config(object):
         self.std = 36
         self.output_path = "logs"
         self.imagenet_mean = np.array([103.939, 116.779, 123.68])
+        self.learning_rate = .001
 
     @staticmethod
     def __create_experiment(name):
@@ -50,8 +50,6 @@ class Config(object):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M")
         open(os.path.join(unique, timestamp), 'a').close()
         return unique
-
-
 
 
 def compute_mean(reader, ids):
