@@ -4,6 +4,8 @@ from read_data import ATLASReader
 import tensorflow as tf
 import numpy as np
 import eval
+import metrics
+
 
 class Net2D(object):
     def __init__(self, config):
@@ -23,9 +25,10 @@ class Net2D(object):
             input_tensor=input,
             pooling=None,
         )
-        for layer in resnet.layers:
-            layer.trainable = False
 
+        if config.freeze_resnet:
+            for layer in resnet.layers:
+                layer.trainable = False
 
         resnet_output5 = resnet.graph.get_tensor_by_name("activation_48/Relu:0")  # (b, 7, 7, 2048)
         resnet_output4 = resnet.graph.get_tensor_by_name("activation_39/Relu:0")  # (b, 14, 14, 1024)
@@ -40,6 +43,34 @@ class Net2D(object):
         print('resnet_output3 shape: ' + str(resnet_output3.shape))
         print('resnet_output4 shape: ' + str(resnet_output4.shape))
         print('resnet_output5 shape: ' + str(resnet_output5.shape))
+
+        classification = tf.layers.conv2d(
+            inputs=resnet_output5,
+            filters=256,
+            kernel_size=(3, 3),
+            padding='SAME',
+            strides=(2, 2),
+            activation=tf.nn.relu)  # 4x4
+
+        classification = tf.layers.conv2d(
+            inputs=classification,
+            filters=64,
+            kernel_size=(3, 3),
+            padding='SAME',
+            strides=(2, 2),
+            activation=tf.nn.relu)  # 2x2
+
+        classification = tf.layers.max_pooling2d(classification, pool_size=(2, 2), strides=(2, 2))
+        classification = tf.layers.conv2d(
+            inputs=classification,
+            filters=1,
+            kernel_size=(1,1),
+            padding='SAME',
+            activation=None  # 1x1
+        )
+        classification = tf.squeeze(classification)
+        has_lesion = tf.minimum(1., tf.reduce_sum(self.labels_placeholder, axis=[1, 2]))
+
 
         # Transpose Layer 4: (N, 7, 7, 2048) -> (N, 14, 14, 1024)
         # Transpose Layer 3: (N, 14, 14, 1024) -> (N, 28, 28, 512)
@@ -63,7 +94,7 @@ class Net2D(object):
 
             # Stack with output of 4th layer of ResNet to get (N, H/2, W/2, filter_size * 2)
             print('Resnet Conv Shape:', resnet_output.shape, "Upsampled Shape", t_conv.shape)
-            if resnet_output == resnet_output2: # only size 55 for some reason?
+            if resnet_output == resnet_output2:  # only size 55 for some reason?
                 resnet_output = tf.pad(resnet_output, [[0, 0], [1, 0], [1, 0], [0, 0]], "CONSTANT")
 
             t_conv_stacked = tf.concat([resnet_output, t_conv], axis=3)
@@ -106,10 +137,9 @@ class Net2D(object):
         atlas_logits = tf.squeeze(atlas_logits)
         atlas_predictions = tf.nn.sigmoid(atlas_logits)
 
-        atlas_logits = tf.Print(atlas_logits, [tf.reduce_mean(tf.cast(atlas_logits > 0, dtype=tf.float32))])
-
         print('output_layer shape: ' + str(atlas_logits.shape))
-        atlas_loss = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(pos_weight=50, targets=self.labels_placeholder, logits=atlas_logits))
+        atlas_loss = metrics.binary_crossentropy(labels=self.labels_placeholder, logits=atlas_logits,
+                                                 pos_weight=config.atlas_pos_weight)
         atlas_train_op = tf.train.AdamOptimizer(config.learning_rate).minimize(atlas_loss)
 
         return ([(atlas_loss, atlas_predictions, atlas_train_op)], [atlas_predictions])
@@ -168,14 +198,14 @@ def preprocess(data, labels, config):
     return (data - config.mean) / config.std, labels
 
 
-def create_atlas_slice_iterator(input_placeholder, label_placeholder, reader, config):
+def create_atlas_slice_iterator(reader, config):
     max_slice_index = 189
     ids = reader.get_case_ids()
     slice_indices = list(range(max_slice_index))
     batch_size = config.slice_batch_size
 
     def atlas_iterator():
-        while True:
+        if True:
             np.random.shuffle(slice_indices)
 
             for id in ids:
@@ -188,45 +218,50 @@ def create_atlas_slice_iterator(input_placeholder, label_placeholder, reader, co
                 labels = np.squeeze(labels)
 
                 data = data.transpose([2, 0, 1])
-                labels = labels.transpose([2, 0, 1]) / 255
+                labels = np.minimum(labels.transpose([2, 0, 1]), 1)
 
                 for start_slice in range(0, max_slice_index, batch_size):
                     end_slice = min(start_slice + batch_size, max_slice_index)
-                    yield {input_placeholder: data[start_slice: end_slice], label_placeholder: labels[start_slice: end_slice]}
-                print('Finished ID', id)
+                    yield data[start_slice: end_slice], labels[start_slice: end_slice]
 
     return atlas_iterator
 
 
 if __name__ == '__main__':
-        config = configuration.Config()
-        slice_network = Net2D(config)
-        [atlas_train_ops], [atlas_predict_op] = slice_network.build()
+    config = configuration.Config()
+    slice_network = Net2D(config)
+    [atlas_train_ops], [atlas_predict_op] = slice_network.build()
 
-        reader = ATLASReader()
-        ids = reader.get_case_ids()
+    reader = ATLASReader()
+    ids = reader.get_case_ids()
 
-        case = reader.get_case(ids[0])
-        case_data = np.expand_dims(case['data'], 0)
-        case_labels = np.expand_dims(case['labels'], 0)
+    case = reader.get_case(ids[0])
+    case_data = np.expand_dims(case['data'], 0)
+    case_labels = np.expand_dims(case['labels'], 0)
 
-        data, labels = preprocess(case_data, case_labels, config)
-        batch_size, height, width, depth = data.shape
-        print('Shape is ', (height, width, depth))
+    data, labels = preprocess(case_data, case_labels, config)
+    batch_size, height, width, depth = data.shape
+    print('Atlas shape is ', (height, width, depth))
 
-        altas_iterator = create_atlas_slice_iterator(slice_network.input_placeholder, slice_network.labels_placeholder,
-                                                     reader, config)
+    atlas_iterator = create_atlas_slice_iterator(reader, config)
 
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
+    with tf.Session() as sess:
+        loss_var = tf.Variable(0.)
+        writer = tf.summary.FileWriter(config.output_path, sess.graph)
+        tf.summary.scalar("loss", loss_var)
+        write_op = tf.summary.merge_all()
 
-            tf.summary.FileWriter(config.output_path, sess.graph)
-
-            for epoch in range(config.epochs):
-                for iteration, atlas_feed_dict in enumerate(altas_iterator()):
-                    atlas_loss, pred, _ = sess.run(atlas_train_ops, feed_dict=atlas_feed_dict)
-                    if iteration % 100 == 0:
-                        index = np.argmax(atlas_feed_dict[slice_network.labels_placeholder].sum(axis=1).sum(axis=1))
-                        eval.visualize(config.mean+(atlas_feed_dict[slice_network.input_placeholder][index] * config.std), pred[index], atlas_feed_dict[slice_network.labels_placeholder][index]).show()
-                    print('Atlas Loss:', atlas_loss)
-                print("Finished Epoch")
+        sess.run(tf.global_variables_initializer())
+        for i in atlas_iterator():
+            pass
+        for epoch in range(config.epochs):
+            for iteration, (data, labels) in enumerate(atlas_iterator()):
+                atlas_loss, pred, _ = sess.run(atlas_train_ops, feed_dict={slice_network.input_placeholder: data,
+                                                                           slice_network.labels_placeholder: labels})
+                writer.add_summary(sess.run(write_op, {loss_var: atlas_loss}), iteration)
+                writer.flush()
+                if iteration % 1000 == 0:
+                    index = np.argmax(labels.sum(axis=1).sum(axis=1))
+                    eval.visualize(config.mean + (data[index] * config.std), pred[index], labels[index]).show()
+                print(epoch, iteration, 'Atlas Loss:', atlas_loss)
+            print("Finished Epoch")
