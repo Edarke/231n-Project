@@ -6,16 +6,23 @@ import datetime
 import tensorflow as tf
 
 
-
 class Config(object):
     def __init__(self):
         self.experiment_name = 'Initial Test'
         self.results_path = self.__create_experiment(self.experiment_name)
-        self.dtype = tf.float16
+        self.dtype = tf.float32
+        tf.keras.backend.set_floatx('float32')
         self.mean = 33
         self.std = 36
         self.output_path = "logs"
         self.imagenet_mean = np.array([103.939, 116.779, 123.68])
+        self.learning_rate = .001
+        self.epochs = 100
+        self.patience = 10
+        self.slice_batch_size = 16
+        self.freeze_resnet = False
+        self.atlas_positive_freq = .0016779066593665076
+        self.atlas_pos_weight = 50.
 
     @staticmethod
     def __create_experiment(name):
@@ -50,8 +57,6 @@ class Config(object):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M")
         open(os.path.join(unique, timestamp), 'a').close()
         return unique
-
-
 
 
 def compute_mean(reader, ids):
