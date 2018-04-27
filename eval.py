@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.misc as misc
-import matplotlib.pyplot as plt
 from read_data import ATLASReader
 
 
@@ -8,6 +7,13 @@ _true_color = np.array([[[255, 0, 0, 100]]])
 _prediction_color = np.array([[[0, 0, 255, 100]]])
 
 def visualize(original, prediction, labels):
+    """
+
+    :param original: 2D array (h, w) with values [0, 255] representing one slice of the input
+    :param prediction: 2D array of floats [0, 1] representing confidence
+    :param labels: 2D array of zeros and ones segmenting the image.
+    :return: An RGB PIL image
+    """
     thresholded = (prediction > .5).astype(np.int32)
     thresholded = np.expand_dims(thresholded, -1)
     labels = np.expand_dims(labels, -1)
@@ -22,10 +28,7 @@ def visualize(original, prediction, labels):
     return original_image
 
 
-
-
-
-
+# For testing
 if __name__ == '__main__':
     reader = ATLASReader()
     ids = reader.get_case_ids()
