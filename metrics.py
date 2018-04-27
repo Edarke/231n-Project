@@ -1,17 +1,25 @@
 import tensorflow as tf
 
 
-def soft_dice(predictions, labels):
+def soft_dice(predictions, labels, pos_weight):
     # 2TP / (T - TP + 2TP + P - TP)
     predictions = tf.reshape(predictions, [-1])
     truth = tf.reshape(labels, [-1])
     intersection = 2*tf.reduce_sum(predictions * truth)
     union = tf.reduce_sum(predictions + truth)
     union = tf.Print(union, [intersection, union])
-    return 1 - intersection/(union + 1e-7)
+    score = 1 - intersection/(union + 1e-7)
+
+    predictions = 1 - predictions
+    truth = 1 - truth
+    intersection = 2 * tf.reduce_sum(predictions * truth)
+    union = tf.reduce_sum(predictions + truth)
+    union = tf.Print(union, [intersection, union])
+    score += 1 - intersection / (union + 1e-7)
+    return score
 
 
-def soft_iou(predictions, labels):
+def soft_iou(predictions, labels, pos_weight):
     # http://angusg.com/writing/2016/12/28/optimizing-iou-semantic-segmentation.html
     predictions = tf.reshape(predictions, [-1])
     truth = tf.reshape(labels, [-1])

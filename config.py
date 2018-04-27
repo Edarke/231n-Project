@@ -32,7 +32,7 @@ class Config(object):
         :param name: short, preferably unique, description of experiment
         :return: path of the new directory
         """
-        base = 'experiments/' + name.replace(' ', '_')
+        base = 'tmp_experiments/' + name.replace(' ', '_')
         unique = base
 
         # Experiments should have unique descriptions, but just in case...
