@@ -137,11 +137,10 @@ class Net2D(object):
         atlas_predictions = tf.nn.sigmoid(atlas_logits)
 
         print('output_layer shape: ' + str(atlas_logits.shape))
-        #atlas_loss = metrics.binary_crossentropy(labels=self.labels_placeholder, logits=atlas_logits,
-        #                                         pos_weight=config.atlas_pos_weight)
+        atlas_loss = metrics.binary_crossentropy(labels=self.labels_placeholder, logits=atlas_logits,
+                                                 pos_weight=40)
 
-        atlas_loss = metrics.soft_dice(labels=self.labels_placeholder, predictions=atlas_predictions,
-                                       pos_weight=config.atlas_pos_weight)
+        #atlas_loss = metrics.soft_dice(y_true=self.labels_placeholder, y_pred=atlas_predictions)
         atlas_train_op = tf.train.AdamOptimizer(config.learning_rate).minimize(atlas_loss)
 
         return ([(atlas_loss, atlas_predictions, atlas_train_op)], [atlas_predictions])
@@ -203,13 +202,11 @@ def preprocess(data, labels, config):
 def create_atlas_slice_iterator(reader, config):
     max_slice_index = 189
     ids = reader.get_case_ids()
-    slice_indices = [70] * max_slice_index #list(range(max_slice_index))
     batch_size = config.slice_batch_size
 
     def atlas_iterator():
-        np.random.shuffle(slice_indices)
 
-        for id in [ids[0]]:
+        for id in ids:
             case = reader.get_case(id)
             case_data = np.expand_dims(case['data'], 0)
             case_labels = np.expand_dims(case['labels'], 0)
@@ -221,7 +218,14 @@ def create_atlas_slice_iterator(reader, config):
             data = data.transpose([2, 0, 1])
             labels = np.minimum(labels.transpose([2, 0, 1]), 1)
 
-            for start_slice in range(0, max_slice_index, batch_size):
+            pos_examples = np.max(labels, axis=(1, 2)).astype(np.bool)
+
+            data = data[pos_examples]
+            labels = labels[pos_examples]
+            slice_indices = np.arange(len(labels))
+            np.random.shuffle(slice_indices)
+
+            for start_slice in range(0, len(slice_indices), batch_size):
                 end_slice = min(start_slice + batch_size, max_slice_index)
                 yield data[slice_indices[start_slice: end_slice]], labels[slice_indices[start_slice: end_slice]]
     return atlas_iterator
@@ -252,16 +256,14 @@ if __name__ == '__main__':
         write_op = tf.summary.merge_all()
 
         sess.run(tf.global_variables_initializer())
-        for i in atlas_iterator():
-            pass
+
         for epoch in range(config.epochs):
             for iteration, (data, labels) in enumerate(atlas_iterator()):
                 atlas_loss, pred, _ = sess.run(atlas_train_ops, feed_dict={slice_network.input_placeholder: data,
                                                                            slice_network.labels_placeholder: labels})
                 writer.add_summary(sess.run(write_op, {loss_var: atlas_loss}), iteration)
                 writer.flush()
-                if iteration % 100 == 0:
+                if iteration % 5000 == 0:
                     index = np.argmax(labels.sum(axis=1).sum(axis=1))
                     eval.visualize(config.mean + (data[index] * config.std), pred[index], labels[index]).show()
                 print(epoch, iteration, 'Atlas Loss:', atlas_loss)
-            print("Finished Epoch")
