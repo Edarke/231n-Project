@@ -14,7 +14,8 @@ from collections import defaultdict
 datasets = {
     'mccai': 'datasets/MCCAI-2008',
     'cyprus': 'datasets/cyprus',
-    'atlas': 'datasets/ATLAS_R1.1'
+    'atlas': 'datasets/ATLAS_R1.1',
+    'brats': 'datasets/MICCAI_BraTS_2018_Data_Training'
 }
 
 class MCCAIReader(object):
@@ -139,6 +140,41 @@ class ATLASReader(object):
 
         return ret_files
 
+
+class BRATSReader(object):
+    def __init__(self):
+        self.directory = datasets['brats']
+        self.files = self.get_files()
+        self.modalities = ['t1ce', 'flair', 't1', 't2']
+
+    def get_case_ids(self):
+        return list(self.files.keys())
+
+    def get_case(self, case_id):
+        ret_files = {}
+
+        path, file_names = self.files[case_id]
+        full_paths = map(lambda fname: os.path.join(path, fname), file_names)
+
+        for full_path in full_paths:
+            for modality in self.modalities:
+                if full_path.endswith(modality + '.nii'):
+                    ret_files[modality] = nib.load(full_path).get_data()
+                elif full_path.endswith('seg.nii'):
+                    ret_files['labels'] = nib.load(full_path).get_data()
+
+        return ret_files
+
+
+    def get_files(self):
+        files = {}
+        subdirs = ['HGG', 'LGG']
+        for subdir in subdirs:
+            patient_dirs = list(os.walk(os.path.join(self.directory, subdir)))
+            for patient_dir in patient_dirs[1:]:
+                files[os.path.basename(patient_dir[0])] = (patient_dir[0], patient_dir[2])
+        return files
+    
 
 class CyprusReader(object):
     def __init__(self):
