@@ -1,6 +1,7 @@
 datasets/*
 logs/*
 .idea/*
+tmp_experiments/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
