@@ -2,6 +2,8 @@
 
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+from builtins import filter
+
 import numpy as np
 from keras.models import *
 import config as configuration
@@ -19,8 +21,8 @@ import config
 class myUnet(object):
     def __init__(self, config, img_rows, img_cols):
         self.config = config
-        self.img_rows = img_rows
-        self.img_cols = img_cols
+        self.img_rows = 224
+        self.img_cols = 224
 
 
     def get_unet(self):
@@ -80,7 +82,7 @@ class myUnet(object):
         conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv2')(merge9)
         conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv3')(conv9)
         conv9 = Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv4')(conv9)
-        conv10 = Conv2D(1, 1, activation='sigmoid', name='prediction')(conv9)
+        conv10 = Conv2D(filters=1, kernel_size=1, activation='sigmoid', name='prediction')(conv9)
 
         model = Model(input=inputs, output=conv10)
 
@@ -117,8 +119,8 @@ if __name__ == '__main__':
     train_ids, val_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = SliceGenerator(brats, slices, train_ids, dim=(16, height, width, 1))
-    val_datagen = SliceGenerator(brats, slices, val_ids, dim=(16, height, width, 1))
+    train_datagen = SliceGenerator(brats, slices, train_ids, dim=(16, height, width, 1), config=config)
+    val_datagen = SliceGenerator(brats, slices, val_ids, dim=(16, height, width, 1), config=config)
 
     myunet = myUnet(config, height, width)
     myunet.train(train_datagen, val_datagen)

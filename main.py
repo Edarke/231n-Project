@@ -176,8 +176,8 @@ def preprocess(data, labels, config):
     elif h_diff < 0:
         slice_top = -1 * h_diff // 2
         slice_bottom = -1 * (h_diff // 2 - h_diff % 2)
-        data = data[:, slice_top:-slice_bottom + 1, :, :]
-        labels = labels[:, slice_top:-slice_bottom + 1, :, :]
+        data = data[:, slice_top:-slice_bottom, :, :]
+        labels = labels[:, slice_top:-slice_bottom, :, :]
         pad_dims.append((0, 0))
 
     if w_diff > 0:
@@ -187,8 +187,8 @@ def preprocess(data, labels, config):
     elif w_diff < 0:
         slice_left = -1 * w_diff // 2
         slice_right = -1 * (w_diff // 2 - w_diff % 2)
-        data = data[:, :, slice_left:-slice_right + 1, :]
-        labels = labels[:, :, slice_left:-slice_right + 1, :]
+        data = data[:, :, slice_left:-slice_right, :]
+        labels = labels[:, :, slice_left:-slice_right, :]
         pad_dims.append((0, 0))
 
     pad_dims.append((0, 0))
