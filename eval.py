@@ -2,8 +2,8 @@ import numpy as np
 import scipy.misc as misc
 from read_data import ATLASReader
 
-_true_color = np.array([[[255, 0, 0, 100]]])
-_prediction_color = np.array([[[0, 0, 255, 100]]])
+_true_color = np.array([[[255, 0, 0, 75]]])
+_prediction_color = np.array([[[0, 0, 255, 75]]])
 
 
 def visualize(original, prediction, labels):
