@@ -5,3 +5,4 @@ tensorflow_gpu==1.4.0
 numpy==1.13.3
 pynrrd==0.2.4
 tensorflow==1.7.0
+keras==2.1.6

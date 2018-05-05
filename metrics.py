@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+import keras.backend as K
 
 # def soft_dice(predictions, labels):
 #     # 2TP / (T - TP + 2TP + P - TP)
@@ -35,3 +35,28 @@ def binary_crossentropy(logits, labels, pos_weight):
 def dice(predictions, labels):
     masked = tf.cast(predictions > .5, tf.float32)
     return soft_dice(masked, labels)
+
+
+
+def keras_dice_coef(y_true, y_pred, smooth=1):
+    '''
+    https://github.com/keras-team/keras/issues/3611
+    :param y_true:
+    :param y_pred:
+    :param smooth:
+    :return:
+    '''
+    intersection = K.sum(y_true * y_pred, axis=[1,2,3])
+    union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
+    return K.mean( (2. * intersection + smooth) / (union + smooth), axis=0)
+
+def keras_dice_coef_loss(y_true, y_pred):
+    '''
+    The dice loss is minimized when the dice score is maximized.
+    Outputs value in range (0, 1]
+    https://github.com/keras-team/keras/issues/3611
+    :param y_true:
+    :param y_pred:
+    :return:
+    '''
+    return 1 - keras_dice_coef(y_true, y_pred)
