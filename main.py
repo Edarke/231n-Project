@@ -215,6 +215,7 @@ def create_atlas_slice_iterator(reader, config):
             data = np.squeeze(data)
             labels = np.squeeze(labels)
 
+
             data = data.transpose([2, 0, 1])
             labels = np.minimum(labels.transpose([2, 0, 1]), 1)
 
