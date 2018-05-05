@@ -2,6 +2,8 @@ import glob
 import os
 import csv
 import nrrd # For MCCAI
+import random
+import math
 import numpy as np
 import nibabel as nib # For ATLAS
 from scipy.io import loadmat # for Cyprus
@@ -147,8 +149,15 @@ class BRATSReader(object):
         self.files = self.get_files(use_hgg, use_lgg)
         self.modalities = ['t1ce', 'flair', 't1', 't2']
 
-    def get_case_ids(self):
-        return list(self.files.keys())
+    def get_case_ids(self, val_p = 0.15):
+        random.seed(101)
+        all_files = list(self.files.keys())
+
+        validation_indices = random.sample(range(len(all_files)), math.floor(len(all_files) * val_p))
+        validation_ids = [all_files[i] for i in sorted(validation_indices)]
+
+        training_ids = [i for i in all_files if i not in set(validation_ids)]
+        return training_ids, validation_ids
 
     def get_case(self, case_id):
         ret_files = {}
