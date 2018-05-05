@@ -142,9 +142,9 @@ class ATLASReader(object):
 
 
 class BRATSReader(object):
-    def __init__(self):
+    def __init__(self, use_hgg=True, use_lgg=True):
         self.directory = datasets['brats']
-        self.files = self.get_files()
+        self.files = self.get_files(use_hgg, use_lgg)
         self.modalities = ['t1ce', 'flair', 't1', 't2']
 
     def get_case_ids(self):
@@ -166,9 +166,15 @@ class BRATSReader(object):
         return ret_files
 
 
-    def get_files(self):
+    def get_files(self, use_hgg, use_lgg):
         files = {}
-        subdirs = ['HGG', 'LGG']
+        subdirs = []
+
+        if use_hgg:
+            subdirs.append('HGG')
+        if use_lgg:
+            subdirs.append('LGG')
+
         for subdir in subdirs:
             patient_dirs = list(os.walk(os.path.join(self.directory, subdir)))
             for patient_dir in patient_dirs[1:]:
