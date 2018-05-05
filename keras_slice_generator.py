@@ -39,7 +39,7 @@ class SliceGenerator(keras.utils.Sequence):
         'Generates data containing batch_size samples'  # X : (n_samples, *dim, n_channels)
         # Initialization
         X = np.empty(self.dim)
-        y = np.empty(self.dim[0:-1], dtype=np.int8)
+        y = np.empty(self.dim, dtype=np.int8)
 
         # Generate data
         for i, (patient_id, slice_index) in enumerate(list_IDs_temp):
@@ -50,6 +50,6 @@ class SliceGenerator(keras.utils.Sequence):
             X[i, :, :, :] = np.expand_dims(dic['flair'][:, :, slice_index], axis=-1)
 
             # Store class
-            y[i] = dic['labels'][:, :, slice_index]
+            y[i] = np.expand_dims(dic['labels'][:, :, slice_index], -1)
 
         return X, y

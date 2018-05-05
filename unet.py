@@ -56,31 +56,31 @@ class myUnet(object):
         conv5 = Conv2D(1024, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='conv5_2')(conv5)
         drop5 = Dropout(0.5)(conv5)
 
-        up6 = Conv2D(512, 2, activation='relu', padding='same', kernel_initializer='he_normal', name='conv1_1')(
+        up6 = Conv2D(512, 2, activation='relu', padding='same', kernel_initializer='he_normal', name='up1_conv1')(
             UpSampling2D(size=(2, 2))(drop5))
         merge6 = merge([drop4, up6], mode='concat', concat_axis=3)
-        conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge6)
-        conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv6)
+        conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up1_conv2')(merge6)
+        conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up1_conv3')(conv6)
 
-        up7 = Conv2D(256, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        up7 = Conv2D(256, 2, activation='relu', padding='same', kernel_initializer='he_normal', name='up2_conv1')(
             UpSampling2D(size=(2, 2))(conv6))
         merge7 = merge([conv3, up7], mode='concat', concat_axis=3)
-        conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge7)
-        conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv7)
+        conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up2_conv2')(merge7)
+        conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up2_conv3')(conv7)
 
-        up8 = Conv2D(128, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        up8 = Conv2D(128, 2, activation='relu', padding='same', kernel_initializer='he_normal', name='up3_conv1')(
             UpSampling2D(size=(2, 2))(conv7))
         merge8 = merge([conv2, up8], mode='concat', concat_axis=3)
-        conv8 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge8)
-        conv8 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv8)
+        conv8 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up3_conv2')(merge8)
+        conv8 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up3_conv3')(conv8)
 
-        up9 = Conv2D(64, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        up9 = Conv2D(64, 2, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv1')(
             UpSampling2D(size=(2, 2))(conv8))
         merge9 = merge([conv1, up9], mode='concat', concat_axis=3)
-        conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge9)
-        conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
-        conv9 = Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
-        conv10 = Conv2D(1, 1, activation='sigmoid')(conv9)
+        conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv2')(merge9)
+        conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv3')(conv9)
+        conv9 = Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal', name='up4_conv4')(conv9)
+        conv10 = Conv2D(1, 1, activation='sigmoid', name='prediction')(conv9)
 
         model = Model(input=inputs, output=conv10)
 
