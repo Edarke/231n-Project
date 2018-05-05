@@ -149,6 +149,11 @@ class BRATSReader(object):
         self.files = self.get_files(use_hgg, use_lgg)
         self.modalities = ['t1ce', 'flair', 't1', 't2']
 
+    def get_dims(self):
+        # Get dimensionality of first example
+        data = self.get_case(self.get_case_ids()[0][0])
+        return data['labels'].shape
+
     def get_case_ids(self, val_p = 0.15):
         random.seed(101)
         all_files = list(self.files.keys())
