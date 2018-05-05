@@ -46,6 +46,8 @@ def keras_dice_coef(y_true, y_pred, smooth=1):
     :param smooth:
     :return:
     '''
+
+
     intersection = K.sum(y_true * y_pred, axis=[1,2,3])
     union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
     return K.mean( (2. * intersection + smooth) / (union + smooth), axis=0)
