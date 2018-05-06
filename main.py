@@ -7,6 +7,56 @@ import eval
 import metrics
 
 
+class UNet(object):
+    def __init__(self, config):
+        self.config = config
+        self.input_placeholder = tf.placeholder(dtype=self.config.dtype, shape=[None, 224, 224])  # (b, h, w)
+        self.labels_placeholder = tf.placeholder(shape=(None, None, None), dtype=self.config.dtype)  # (b, h, w)
+        self.atlas_train_op = None
+
+    def _pool_block(self, input, filters, block_num, activation=tf.nn.leaky_relu):
+        prefix = "conv" + block_num + "_"
+        conv1 = tf.layers.conv2d(input, filters=filters, kernel_size=3, padding='SAME', name=prefix + '1',
+                                 activation=activation)
+        conv2 = tf.layers.conv2d(conv1, filters=filters, kernel_size=3, padding='SAME', name=prefix + '2',
+                                 activation=activation, strides=2)
+        print(conv2.shape)
+        return conv2
+
+    def _unpool_block(self, pooled, prepooled, block_num, activation=tf.nn.leaky_relu):
+        prefix = 'deconv' + block_num + '_'
+        filters = pooled.shape[-1]
+        deconv1 = tf.layers.conv2d_transpose(pooled, filters=filters, kernel_size=3, strides=2, padding='SAME', name=prefix + '1',
+                                             activation=activation)
+        print(pooled.shape, deconv1.shape, prepooled.shape)
+
+        concat = tf.concat([prepooled, deconv1], axis=-1, name=prefix + 'concat')
+        deconv2 = tf.layers.conv2d(concat, filters=filters, kernel_size=2, padding='SAME', name=prefix + 'conv1',
+                                   activation=activation)
+        return deconv2
+
+    def build(self):
+        filters = 16
+        s224 = tf.expand_dims(self.input_placeholder, -1)
+        s112 = self._pool_block(s224, filters, '1')
+        s56 = self._pool_block(s112, filters * 2, '2')
+        s28 = self._pool_block(s56, filters * 4, '3')
+        s14 = self._pool_block(s28, filters * 8, '4')
+        s7 = self._pool_block(s14, filters * 16, '5')
+        u14 = self._unpool_block(s7, s14, '1')
+        u28 = self._unpool_block(u14, s28, '2')
+        u56 = self._unpool_block(u28, s56, '3')
+        u112 = self._unpool_block(u56, s112, '4')
+        u224 = self._unpool_block(u112, s224, '5')
+
+        logits = tf.squeeze(tf.layers.conv2d(u224, filters=1, kernel_size=1, name='logits', activation=None))
+        probs = tf.sigmoid(logits, 'probs')
+        loss = tf.nn.weighted_cross_entropy_with_logits(self.labels_placeholder, logits, pos_weight=48)
+        loss = tf.reduce_mean(loss)
+        opt = tf.train.AdamOptimizer().minimize(loss)
+        return [(loss, probs, opt)], [probs]
+
+
 class Net2D(object):
     def __init__(self, config):
         self.config = config
@@ -140,7 +190,7 @@ class Net2D(object):
         atlas_loss = metrics.binary_crossentropy(labels=self.labels_placeholder, logits=atlas_logits,
                                                  pos_weight=40)
 
-        #atlas_loss = metrics.soft_dice(y_true=self.labels_placeholder, y_pred=atlas_predictions)
+        # atlas_loss = metrics.soft_dice(y_true=self.labels_placeholder, y_pred=atlas_predictions)
         atlas_train_op = tf.train.AdamOptimizer(config.learning_rate).minimize(atlas_loss)
 
         return ([(atlas_loss, atlas_predictions, atlas_train_op)], [atlas_predictions])
@@ -228,12 +278,13 @@ def create_atlas_slice_iterator(reader, config):
             for start_slice in range(0, len(slice_indices), batch_size):
                 end_slice = min(start_slice + batch_size, max_slice_index)
                 yield data[slice_indices[start_slice: end_slice]], labels[slice_indices[start_slice: end_slice]]
+
     return atlas_iterator
 
 
 if __name__ == '__main__':
     config = configuration.Config()
-    slice_network = Net2D(config)
+    slice_network = UNet(config) #Net2D(config)
     [atlas_train_ops], [atlas_predict_op] = slice_network.build()
 
     reader = ATLASReader()
@@ -263,7 +314,7 @@ if __name__ == '__main__':
                                                                            slice_network.labels_placeholder: labels})
                 writer.add_summary(sess.run(write_op, {loss_var: atlas_loss}), iteration)
                 writer.flush()
-                if iteration % 5000 == 0:
+                if iteration % 1000 == 0:
                     index = np.argmax(labels.sum(axis=1).sum(axis=1))
                     eval.visualize(config.mean + (data[index] * config.std), pred[index], labels[index]).show()
                 print(epoch, iteration, 'Atlas Loss:', atlas_loss)
