@@ -1,14 +1,15 @@
 import keras
 import numpy as np
 import itertools
+from main import preprocess
 
 class SliceGenerator(keras.utils.Sequence):
     'Generates data for Keras'
 
-    def __init__(self, reader, num_slices, list_ids, dim):
+    def __init__(self, reader, num_slices, list_ids, dim, config):
         'Initialization'
         self.reader = reader
-
+        self.config = config
         self.list_ids = list(itertools.product(list_ids, range(num_slices)))
         self.dim = dim
         self.batch_size = dim[0]
@@ -46,10 +47,11 @@ class SliceGenerator(keras.utils.Sequence):
             # Store sample
             dic = self.reader.get_case(patient_id)
 
-
             X[i, :, :, :] = np.expand_dims(dic['flair'][:, :, slice_index], axis=-1)
 
             # Store class
             y[i] = np.expand_dims(dic['labels'][:, :, slice_index], -1)
 
-        return X, y
+        X, Y = preprocess(X, y, self.config)
+        print(X.shape)
+        return X, Y
