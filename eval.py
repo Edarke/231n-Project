@@ -28,6 +28,8 @@ def visualize(original, prediction, labels):
     return original_image
 
 
+
+# For testing
 if __name__ == '__main__':
     # Test case
     reader = ATLASReader()

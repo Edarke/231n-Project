@@ -23,6 +23,8 @@ class Config(object):
         self.freeze_resnet = False
         self.atlas_positive_freq = .0016779066593665076
         self.atlas_pos_weight = 50.
+        self.brats_val_split = .15
+
 
     @staticmethod
     def __create_experiment(name):
