@@ -175,7 +175,8 @@ class BRATSReader(object):
                 if full_path.endswith(modality + '.nii'):
                     ret_files[modality] = nib.load(full_path).get_data()
                 elif full_path.endswith('seg.nii'):
-                    ret_files['labels'] = nib.load(full_path).get_data()
+                    data = nib.load(full_path).get_data()
+                    ret_files['labels'] = data.clip(0, 1)
 
         return ret_files
 
