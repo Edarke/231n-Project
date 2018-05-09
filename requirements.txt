@@ -1,7 +1,6 @@
 matplotlib==2.2.2
 nibabel==2.2.1
 scipy==1.0.0
-tensorflow_gpu==1.4.0
 numpy==1.13.3
 pynrrd==0.2.4
 tensorflow==1.7.0

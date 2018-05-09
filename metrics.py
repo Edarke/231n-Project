@@ -9,6 +9,8 @@ import keras.backend as K
 #     union = tf.reduce_sum(predictions + truth)
 #     union = tf.Print(union, [intersection, union])
 #     return 1 - intersection/(union + 1e-7)
+from keras.layers.merge import _Merge
+
 
 def soft_dice(y_pred, y_true):
     smooth = 1e-7
@@ -36,11 +38,24 @@ def dice(predictions, labels):
     masked = tf.cast(predictions > .5, tf.float32)
     return soft_dice(masked, labels)
 
+
+def keras_mask_predictions(inputs_predictions_tuple):
+    '''
+    75% of the input is empty space. This multiplies the background by zero so it doesn't affect gradients.
+    The background is composed of pixels with the minimal value in the slice. (This may differ between patients!)
+    :param inputs_predictions_tuple:
+    :return:
+    '''
+    inputs, predictions = inputs_predictions_tuple
+    background_signal = K.min(inputs, axis=[1, 2, 3], keepdims=True)
+    return K.cast(inputs > background_signal, K.floatx()) * predictions
+
+
 # Call with something like:
 # model.compile( ..., loss=keras_dice_coef_loss(input), ... )
-def keras_dice_coef_loss(inputs, smooth=1):
+def keras_dice_coef_loss(smooth=1):
 
-    def keras_dice_coef(y_true, y_pred, smooth=1):
+    def keras_dice_coef(y_true, y_pred):
         '''
         https://github.com/keras-team/keras/issues/3611
         :param y_true:
@@ -49,9 +64,9 @@ def keras_dice_coef_loss(inputs, smooth=1):
         :return:
         '''
 
-        intersection = K.sum(y_true * y_pred, axis=[1,2,3])
-        union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
-        return K.mean( (2. * intersection + smooth) / (union + smooth), axis=0)
+        intersection = K.sum(y_true * y_pred, axis=[1, 2, 3])
+        union = K.sum(y_true, axis=[1, 2, 3]) + K.sum(y_pred, axis=[1, 2, 3])
+        return K.mean((2. * intersection + smooth) / (union + smooth), axis=0)
 
     def keras_dice_coef_loss_fn(y_true, y_pred):
         '''
@@ -62,6 +77,23 @@ def keras_dice_coef_loss(inputs, smooth=1):
         :param y_pred:
         :return:
         '''
-        return 1 - keras_dice_coef(y_true, y_pred * (inputs != 0))
+        return 1 - keras_dice_coef(y_true, y_pred)
 
     return keras_dice_coef_loss_fn
+
+def hard_dice(y_true, y_pred):
+    '''
+    https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
+
+    return 2* (x intersection y) / (|x| + |y|)
+
+    :param y_true:
+    :param y_pred:
+    :return:
+    '''
+    smooth = 1e-5
+    y_true = K.round(K.flatten(y_true))
+    y_pred = K.round(K.flatten(y_pred))
+    intersection = y_true * y_pred
+    scores = (intersection + smooth) / (K.sum(y_true, axis=-1) + K.sum(y_pred, axis=-1) + smooth)
+    return 2. * K.mean(scores)

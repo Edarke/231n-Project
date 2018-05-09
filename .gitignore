@@ -2,7 +2,7 @@ datasets/*
 logs/*
 .idea/*
 tmp_experiments/*
-
+*.hdf5
 
 
 # Byte-compiled / optimized / DLL files
