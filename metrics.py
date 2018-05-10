@@ -47,6 +47,7 @@ def keras_mask_predictions(inputs_predictions_tuple):
     :return:
     '''
     inputs, predictions = inputs_predictions_tuple
+    inputs = inputs[:, :, :, 0:1]
     background_signal = K.min(inputs, axis=[1, 2, 3], keepdims=True)
     return K.cast(inputs > background_signal, K.floatx()) * predictions
 
@@ -81,6 +82,7 @@ def keras_dice_coef_loss(smooth=1):
 
     return keras_dice_coef_loss_fn
 
+
 def hard_dice(y_true, y_pred):
     '''
     https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
@@ -91,9 +93,12 @@ def hard_dice(y_true, y_pred):
     :param y_pred:
     :return:
     '''
+    # TODO: configure threshold to handle class imbalance
     smooth = 1e-5
     y_true = K.round(K.flatten(y_true))
     y_pred = K.round(K.flatten(y_pred))
     intersection = y_true * y_pred
-    scores = (intersection + smooth) / (K.sum(y_true, axis=-1) + K.sum(y_pred, axis=-1) + smooth)
-    return 2. * K.mean(scores)
+    return 2. * (intersection + smooth) / (K.sum(y_true) + K.sum(y_pred) + smooth)
+
+
+# TODO: Implement specificity and sensitivity metrics

@@ -63,8 +63,8 @@ class myUnet(object):
         return conv1
 
     def __get_unet(self):
-        inputs = Input((self.img_rows, self.img_cols, 1))  # (b, 224, 224, 1)
-        filters = 64
+        inputs = Input((self.img_rows, self.img_cols, 4))  # (b, 224, 224, 1)
+        filters = 16  # 64
 
         conv224, p112 = self.__pool_layer(inputs, filters=filters, block_num=1)  # (b, 112, 112, 64)
         conv112, p56 = self.__pool_layer(p112, filters=filters*2, block_num=2)   # (b, 56, 56, 128)
@@ -79,12 +79,13 @@ class myUnet(object):
         u112 = self.__unpool_block(pooled=u56, prepooled=conv112, block_num=3)
         u224 = self.__unpool_block(pooled=u112, prepooled=conv224, block_num=4)
 
+        # TODO: Change this to softmax, update loss
         predictions = Conv2D(filters=1, kernel_size=1, activation='sigmoid', name='predictions')(u224)
         masked_predictions = Lambda(metrics.keras_mask_predictions)([inputs, predictions])
 
-        model = Model(input=inputs, output=masked_predictions)
+        model = Model(inputs=inputs, outputs=masked_predictions)
 
-        model.compile(optimizer=Adam(lr=1e-4), loss='binary_crossentropy', metrics=['accuracy', metrics.hard_dice])
+        model.compile(optimizer=Adam(lr=1e-4), loss=metrics.keras_dice_coef_loss(), metrics=['accuracy', metrics.hard_dice])
 
         return model
 
@@ -95,8 +96,9 @@ class myUnet(object):
         predict_callback = PredictCallback(train_gen, self.config)
         model_checkpoint = ModelCheckpoint(self.config.results_path + '/unet.hdf5', monitor='val_loss', verbose=1, save_best_only=True)
         logger = CSVLogger(self.config.results_path + '/results.csv')
+        tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,  write_graph=True, write_images=True)
         earlystopping = EarlyStopping(monitor='val_loss', patience=50)
-        callbacks = [TerminateOnNaN(), earlystopping, model_checkpoint, predict_callback, logger]
+        callbacks = [TerminateOnNaN(), earlystopping, model_checkpoint, predict_callback, logger, tensorboard]
         model.fit_generator(generator=train_gen, steps_per_epoch=len(train_gen), validation_data=val_gen, validation_steps=len(val_gen), epochs=9000, verbose=1, callbacks=callbacks)
 
     def save_img(self):
@@ -116,8 +118,8 @@ if __name__ == '__main__':
     train_ids, val_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 1), config=config)
-    val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 1), config=config)
+    train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4), config=config)
+    val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config)
 
     myunet = myUnet(config)
     myunet.train(train_datagen, val_datagen)
