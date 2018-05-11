@@ -28,7 +28,7 @@ class SliceGenerator(keras.utils.Sequence):
             self.list_ids = list(itertools.product(range(len(list_ids)), range(num_slices)))
             for index, id in enumerate(list_ids):
                 case = reader.get_case(id)
-                data = np.stack([case['flair'], case['t1'], case['t1ce'], case['t2']], axis=-1)
+                data = np.stack([self.normalize(case['flair']), self.normalize(case['t1']), self.normalize(case['t1ce']), self.normalize(case['t2'])], axis=-1)
                 labels = case['labels']
 
                 data = np.transpose(data, axes=[2, 0, 1, 3])
@@ -37,7 +37,6 @@ class SliceGenerator(keras.utils.Sequence):
                 data, labels = preprocess(data, labels, config)
                 labels = np.transpose(np.squeeze(labels, 0), [2, 0, 1])
 
-                data = self.normalize(data)
                 data = data.astype(np.float16)
                 labels = labels.astype(np.uint8)
                 self.cases.append((data, labels))
@@ -84,10 +83,10 @@ class SliceGenerator(keras.utils.Sequence):
             # Store sample
             dic = self.reader.get_case(patient_id)
 
-            X[i, :, :, 0] = self.normalize(dic['t1ce'])
-            X[i, :, :, 1] = self.normalize(dic['t1'])
-            X[i, :, :, 2] = self.normalize(dic['t2'])
-            X[i, :, :, 3] = self.normalize(dic['flair'])
+            X[i, :, :, 0] = self.normalize(dic['t1ce'])[:, :, slice_index]
+            X[i, :, :, 1] = self.normalize(dic['t1'])[:, :, slice_index]
+            X[i, :, :, 2] = self.normalize(dic['t2'])[:, :, slice_index]
+            X[i, :, :, 3] = self.normalize(dic['flair'])[:, :, slice_index]
 
             # Store class
             y[i] = dic['labels'][:, :, slice_index]
@@ -95,16 +94,7 @@ class SliceGenerator(keras.utils.Sequence):
         return preprocess(X, y, self.config)
 
     def get_sample_cases(self, num_samples=10):
-        originals = []
         samples = self.list_ids[0:num_samples]
-
-        if self.use_ram:
-            processed, targets = self.__data_generation(samples)
-            originals = processed[:, :, :, 2]
-        else:
-            # TODO: Update this to use 4 channels
-            for id, slice in samples:
-                originals.append(np.expand_dims(self.reader.get_case(id)['t1ce'][:, :, slice], -1))
-            processed, targets = self.__data_generation(samples)
-            originals, _ = preprocess(np.array(originals), targets, self.config)
+        processed, targets = self.__data_generation(samples)
+        originals = processed[:, :, :, 2]
         return originals, processed, targets

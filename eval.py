@@ -23,7 +23,7 @@ def visualize(original, prediction, labels):
     background_mask = original == original.min()
 
     original = np.concatenate([original, original, original], axis=-1)
-    original_image = misc.toimage(original, cmin=0., cmax=255.)
+    original_image = misc.toimage(original)
 
     mask = prediction * _prediction_color + labels * _true_color + background_mask * _background_color
     mask_img = misc.toimage(mask, cmin=0.0, cmax=255., mode='RGBA')

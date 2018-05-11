@@ -23,7 +23,5 @@ class PredictCallback(keras.callbacks.Callback):
             os.makedirs(output_dir)
 
         for i, original in enumerate(originals):
-            original /= original.max()
-            original *= 255
             ex = eval.visualize(original, predictions[i], targets[i])
             ex.save(output_dir + str(i) + '.jpg', 'JPEG')
