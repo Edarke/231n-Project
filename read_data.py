@@ -4,6 +4,7 @@ import csv
 import nrrd  # For MCCAI
 import random
 import math
+import unittest
 import numpy as np
 import nibabel as nib  # For ATLAS
 from scipy.io import loadmat  # for Cyprus
@@ -178,17 +179,23 @@ class BRATSReader(AbstractReader):
         data = self.get_case(self.get_case_ids()[0][0])
         return data['labels'].shape
 
-    def get_case_ids(self, val_p=0.15):
+    def get_case_ids(self, val_p=0.15, test_p=0.15):
         random.seed(101)
         all_files = sorted(list(self.files.keys()))
 
         validation_indices = random.sample(range(len(all_files)), math.floor(len(all_files) * val_p))
         validation_ids = [all_files[i] for i in sorted(validation_indices)]
 
-        training_ids = [i for i in all_files if i not in set(validation_ids)]
+        remaining_ids = [i for i in all_files if i not in set(validation_ids)]
+
+        testing_indices = random.sample(range(len(remaining_ids)), math.floor(len(all_files) * test_p))
+        testing_ids = [remaining_ids[i] for i in sorted(testing_indices)]
+
+        training_ids = [i for i in remaining_ids if i not in set(testing_ids)]
+
         random.shuffle(training_ids)
 
-        return training_ids, validation_ids
+        return training_ids, validation_ids, testing_ids
 
     def get_case(self, case_id):
         ret_files = {}
@@ -237,3 +244,26 @@ class CyprusReader(object):
         for p_id in self.patient_ids:
             initial_mri_dir = os.path.join(self.directory, p_ids, '1')
             secondary_mri_dir = os.path.join(self.directory, p_ids, '2')
+
+
+class BRATSReaderTest(unittest.TestCase):
+    def setUp(self):
+        self.breader = BRATSReader(use_hgg=True, use_lgg=True)
+        self.breader2 = BRATSReader(use_hgg=True, use_lgg=True)
+
+        self.t,  self.val,  self.test  = self.breader.get_case_ids(val_p = 0.15, test_p = 0.15)
+        self.t2, self.val2, self.test2 = self.breader.get_case_ids(val_p = 0.15, test_p = 0.15)
+
+    def test_deterministic(self):
+        self.assertEqual(self.t,    self.t2)
+        self.assertEqual(self.val,  self.val2)
+        self.assertEqual(self.test, self.test2)
+
+    def test_mutually_exclusive(self):
+        self.assertEqual(len(set(self.val).intersection( set(self.test))), 0)
+        self.assertEqual(len(set(self.val).intersection( set(self.t))),    0)
+        self.assertEqual(len(set(self.test).intersection(set(self.t))),    0)
+
+    def test_train_val_equal(self):
+        self.assertEqual(len(self.val), len(self.test)) 
+
