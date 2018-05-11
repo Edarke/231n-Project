@@ -9,7 +9,7 @@ from main import preprocess
 class SliceGenerator(keras.utils.Sequence):
 
     'Generates data for Keras'
-    def __init__(self, reader, num_slices, list_ids, dim, config, use_ram=False):
+    def __init__(self, reader, num_slices, list_ids, dim, config):
         'Initialization'
         self.reader = reader
         self.config = config
@@ -23,8 +23,8 @@ class SliceGenerator(keras.utils.Sequence):
         self.on_epoch_end()
 
         self.cases = []
-        self.use_ram = use_ram
-        if use_ram:
+        self.use_ram = config.use_ram
+        if self.use_ram:
             self.list_ids = list(itertools.product(range(len(list_ids)), range(num_slices)))
             for index, id in enumerate(list_ids):
                 case = reader.get_case(id)

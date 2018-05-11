@@ -26,6 +26,7 @@ class Config(object):
         self.brats_val_split = .15
         self.brats_flair_mean = 75.5395842349218
         self.brats_flat_dev = 563.914851214369
+        self.use_ram = True
 
 
     @staticmethod
