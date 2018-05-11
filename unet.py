@@ -80,12 +80,12 @@ class myUnet(object):
         u224 = self.__unpool_block(pooled=u112, prepooled=conv224, block_num=4)
 
         # TODO: Change this to softmax, update loss
-        predictions = Conv2D(filters=1, kernel_size=1, activation='sigmoid', name='predictions')(u224)
+        predictions = Conv2D(filters=4, kernel_size=1, activation='softmax', name='predictions')(u224)
         masked_predictions = Lambda(metrics.keras_mask_predictions)([inputs, predictions])
 
         model = Model(inputs=inputs, outputs=masked_predictions)
 
-        model.compile(optimizer=Adam(lr=1e-4), loss=metrics.keras_dice_coef_loss(), metrics=['accuracy', metrics.hard_dice])
+        model.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
         return model
 
@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
-    train_ids, val_ids = brats.get_case_ids(config.brats_val_split)
+    train_ids, val_ids, test_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
     train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4), config=config)

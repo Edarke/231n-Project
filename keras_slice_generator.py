@@ -9,7 +9,7 @@ from main import preprocess
 class SliceGenerator(keras.utils.Sequence):
 
     'Generates data for Keras'
-    def __init__(self, reader, num_slices, list_ids, dim, config, use_ram=True):
+    def __init__(self, reader, num_slices, list_ids, dim, config, use_ram=False):
         'Initialization'
         self.reader = reader
         self.config = config
