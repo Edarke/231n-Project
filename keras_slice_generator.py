@@ -91,6 +91,7 @@ class SliceGenerator(keras.utils.Sequence):
             # Store class
             y[i] = dic['labels'][:, :, slice_index]
         y = np.expand_dims(y, axis=-1)
+        print(np.unique(y))
         return preprocess(X, y, self.config)
 
     def get_sample_cases(self, num_samples=10):

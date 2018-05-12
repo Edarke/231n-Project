@@ -39,17 +39,21 @@ def dice(predictions, labels):
     return soft_dice(masked, labels)
 
 
-def keras_mask_predictions(inputs_predictions_tuple):
-    '''
-    75% of the input is empty space. This multiplies the background by zero so it doesn't affect gradients.
-    The background is composed of pixels with the minimal value in the slice. (This may differ between patients!)
-    :param inputs_predictions_tuple:
-    :return:
-    '''
-    inputs, predictions = inputs_predictions_tuple
-    inputs = inputs[:, :, :, 0:1]
+def compute_mask(inputs):
+    inputs = inputs[..., 0:1]
     background_signal = K.min(inputs, axis=[1, 2, 3], keepdims=True)
-    return K.cast(inputs > background_signal, K.floatx()) * predictions
+    return K.cast(inputs > background_signal, K.floatx())
+
+
+def keras_masked_sparse_categorical_accuracy(mask):
+    def accuracy(y_true, y_pred):
+        y_true = K.squeeze(y_true, axis=-1)
+        y_pred = K.argmax(y_pred, axis=-1)
+        correct = K.sum(mask * (y_true == y_pred)) + 1e-7
+        incorrect = K.sum(mask * (y_true != y_pred))
+        return correct / (correct + incorrect)
+    return accuracy
+
 
 
 # Call with something like:
@@ -64,10 +68,16 @@ def keras_dice_coef_loss(smooth=1):
         :param smooth:
         :return:
         '''
+        y_true = K.squeeze(y_true, axis=-1)
+        y_true = K.one_hot(K.cast(y_true, 'int64'), 4)  # (b, h, w, 4)
 
-        intersection = K.sum(y_true * y_pred, axis=[1, 2, 3])
-        union = K.sum(y_true, axis=[1, 2, 3]) + K.sum(y_pred, axis=[1, 2, 3])
-        return K.mean((2. * intersection + smooth) / (union + smooth), axis=0)
+        # Ignore void class
+        y_true = y_true[:, :, :, 1:]  # (b, h, w, 3)
+        y_pred = y_pred[:, :, :, 1:]
+
+        intersection = K.sum(y_true * y_pred, axis=[1, 2])
+        union = K.sum(K.square(y_true), axis=[1, 2]) + K.sum(K.square(y_pred), axis=[1, 2])
+        return K.mean((2. * intersection + smooth) / (union + smooth))
 
     def keras_dice_coef_loss_fn(y_true, y_pred):
         '''
@@ -89,16 +99,24 @@ def hard_dice(y_true, y_pred):
 
     return 2* (x intersection y) / (|x| + |y|)
 
-    :param y_true:
+    :param y_true: Sparse y labels
     :param y_pred:
     :return:
     '''
-    # TODO: configure threshold to handle class imbalance
     smooth = 1e-5
-    y_true = K.round(K.flatten(y_true))
-    y_pred = K.round(K.flatten(y_pred))
-    intersection = y_true * y_pred
-    return 2. * (intersection + smooth) / (K.sum(y_true) + K.sum(y_pred) + smooth)
+
+    y_true = K.squeeze(y_true, axis=-1)
+    y_true = K.one_hot(K.cast(y_true, 'int64'), 4)  # (b, h*w, 4)
+
+    y_pred = K.one_hot(K.argmax(y_pred, axis=-1), 4)
+
+    # Ignore void class
+    y_true = y_true[:, :, 1:]  # (b, h*w, 3)
+    y_pred = y_pred[:, :, 1:]
+
+    intersection = K.sum(y_true * y_pred, axis=[1, 2])
+    union = K.sum(K.square(y_true), axis=[1, 2]) + K.sum(K.square(y_pred), axis=[1, 2])
+    return K.mean((2. * intersection + smooth) / (union + smooth))
 
 
 # TODO: Implement specificity and sensitivity metrics
