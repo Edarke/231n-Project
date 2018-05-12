@@ -72,12 +72,15 @@ def keras_dice_coef_loss(smooth=1):
         y_true = K.one_hot(K.cast(y_true, 'int64'), 4)  # (b, h, w, 4)
 
         # Ignore void class
-        y_true = y_true[:, :, :, 1:]  # (b, h, w, 3)
-        y_pred = y_pred[:, :, :, 1:]
+        y_true = y_true[:, :, :, :]  # (b, h, w, 3)
+        y_pred = y_pred[:, :, :, :]  # (b, h, w, 3)
 
-        intersection = K.sum(y_true * y_pred, axis=[1, 2])
-        union = K.sum(K.square(y_true), axis=[1, 2]) + K.sum(K.square(y_pred), axis=[1, 2])
-        return K.mean((2. * intersection + smooth) / (union + smooth))
+        y_true = K.reshape(y_true, (-1, 4))  # (n, 3)
+        y_pred = K.reshape(y_pred, (-1, 4))  # (n, 3)
+
+        intersection = K.sum(y_true * y_pred, axis=[0])  # (3)
+        union = K.sum(K.square(y_true), axis=[0]) + K.sum(K.square(y_pred), axis=[0])  # (3)
+        return K.mean((2. * intersection) / (union + smooth))  # Mean dice loss
 
     def keras_dice_coef_loss_fn(y_true, y_pred):
         '''

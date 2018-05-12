@@ -28,7 +28,7 @@ class myUnet(object):
     def __pool_layer(self, input, filters, block_num, drop_prob=None, activation='relu', padding='same', init='he_uniform'):
         block_num = str(block_num)
         prefix = 'conv' + block_num + '_'
-        reg = tf.keras.regularizers.l2(.001)
+        reg = tf.keras.regularizers.l2(.003)
 
         conv1 = Conv2D(filters, 3, activation=activation, padding=padding, kernel_initializer=init, kernel_regularizer=reg, name=prefix+'1')(input)
         conv1 = BatchNormalization()(conv1)  # TODO: Try LayerNorm
@@ -38,14 +38,14 @@ class myUnet(object):
         # TODO: Try AveragePooling, or strided convolutions
         pool1 = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(conv1)
         if drop_prob is not None:
-            pool1 = Dropout(drop_prob, name='drop' + block_num)(pool1)
+            pool1 = Dropout(drop_prob, name='dropdown' + block_num)(pool1)
         return conv1, pool1
 
     def __unpool_block(self, pooled, prepooled, block_num, drop_prob=None, activation='relu', padding='same', init='he_uniform'):
         filters = prepooled._keras_shape[-1]
         block_num = str(block_num)
         prefix = 'upconv' + block_num + '_'
-        reg = tf.keras.regularizers.l2(.001)
+        reg = tf.keras.regularizers.l2(.003)
 
         # conv1 = Deconv2D(filters=filters, kernel_size=(3, 3), strides=2, padding=padding, activation=activation, kernel_initializer=init, kernel_regularizer=reg, name=prefix + '1')(pooled)
         up1 = UpSampling2D(size=(2, 2), name='upsample' + block_num)(pooled)
@@ -60,7 +60,7 @@ class myUnet(object):
         conv1 = BatchNormalization()(conv1)
 
         if drop_prob is not None:
-            conv1 = Dropout(drop_prob, name='drop' + block_num)(conv1)
+            conv1 = Dropout(drop_prob, name='dropup' + block_num)(conv1)
         return conv1
 
     def __get_unet(self):
@@ -86,7 +86,7 @@ class myUnet(object):
         masked_predictions = multiply([mask, predictions])
 
         model = Model(inputs=inputs, outputs=masked_predictions)
-        model.compile(optimizer=Adam(lr=1e-3), loss=metrics.keras_dice_coef_loss(1e-7), metrics=[metrics.hard_dice, metrics.keras_masked_sparse_categorical_accuracy(mask)])
+        model.compile(optimizer=Adam(lr=1e-3), loss=metrics.keras_dice_coef_loss(1e-7), metrics=[metrics.hard_dice])
 
         return model
 
