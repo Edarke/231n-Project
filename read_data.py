@@ -210,7 +210,12 @@ class BRATSReader(AbstractReader):
                 elif full_path.endswith('seg.nii'):
                     data = nib.load(full_path).get_data()
                     label = data
+
+                    label[label == 2] = -1
+                    label[label == 1] = 2
+                    label[label == -1] = 1
                     label[label == 4] = 3
+
                     ret_files['labels'] = label
 
         return ret_files
