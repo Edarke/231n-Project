@@ -39,17 +39,21 @@ def dice(predictions, labels):
     return soft_dice(masked, labels)
 
 
-def keras_mask_predictions(inputs_predictions_tuple):
-    '''
-    75% of the input is empty space. This multiplies the background by zero so it doesn't affect gradients.
-    The background is composed of pixels with the minimal value in the slice. (This may differ between patients!)
-    :param inputs_predictions_tuple:
-    :return:
-    '''
-    inputs, predictions = inputs_predictions_tuple
-    inputs = inputs[:, :, :, 0:1]
+def compute_mask(inputs):
+    inputs = inputs[..., 0:1]
     background_signal = K.min(inputs, axis=[1, 2, 3], keepdims=True)
-    return K.cast(inputs > background_signal, K.floatx()) * predictions
+    return K.cast(inputs > background_signal, K.floatx())
+
+
+def keras_masked_sparse_categorical_accuracy(mask):
+    def accuracy(y_true, y_pred):
+        y_true = K.squeeze(y_true, axis=-1)
+        y_pred = K.argmax(y_pred, axis=-1)
+        correct = K.sum(mask * (y_true == y_pred)) + 1e-7
+        incorrect = K.sum(mask * (y_true != y_pred))
+        return correct / (correct + incorrect)
+    return accuracy
+
 
 
 # Call with something like:
@@ -64,10 +68,19 @@ def keras_dice_coef_loss(smooth=1):
         :param smooth:
         :return:
         '''
+        y_true = K.squeeze(y_true, axis=-1)
+        y_true = K.one_hot(K.cast(y_true, 'int64'), 4)  # (b, h, w, 4)
 
-        intersection = K.sum(y_true * y_pred, axis=[1, 2, 3])
-        union = K.sum(y_true, axis=[1, 2, 3]) + K.sum(y_pred, axis=[1, 2, 3])
-        return K.mean((2. * intersection + smooth) / (union + smooth), axis=0)
+        # Ignore void class
+        y_true = y_true[:, :, :, :]  # (b, h, w, 3)
+        y_pred = y_pred[:, :, :, :]  # (b, h, w, 3)
+
+        y_true = K.reshape(y_true, (-1, 4))  # (n, 3)
+        y_pred = K.reshape(y_pred, (-1, 4))  # (n, 3)
+
+        intersection = K.sum(y_true * y_pred, axis=[0])  # (3)
+        union = K.sum(K.square(y_true), axis=[0]) + K.sum(K.square(y_pred), axis=[0])  # (3)
+        return K.mean((2. * intersection) / (union + smooth))  # Mean dice loss
 
     def keras_dice_coef_loss_fn(y_true, y_pred):
         '''
@@ -82,23 +95,42 @@ def keras_dice_coef_loss(smooth=1):
 
     return keras_dice_coef_loss_fn
 
-
 def hard_dice(y_true, y_pred):
     '''
     https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
 
     return 2* (x intersection y) / (|x| + |y|)
 
-    :param y_true:
+    :param y_true: Sparse y labels
     :param y_pred:
     :return:
     '''
-    # TODO: configure threshold to handle class imbalance
-    smooth = 1e-5
-    y_true = K.round(K.flatten(y_true))
-    y_pred = K.round(K.flatten(y_pred))
-    intersection = y_true * y_pred
-    return 2. * (intersection + smooth) / (K.sum(y_true) + K.sum(y_pred) + smooth)
+    def to_binary(y):
+        y = tf.reshape(y, [-1])
+        binary = tf.zeros([3, *y.shape], dtype=tf.bool)
+        binary[0] = y >= 1
+        binary[1] = y >= 2
+        binary[2] = y >= 3
+        return binary
+
+    def count_nonzero(tensor, axis):
+        tensor = tf.cast(tensor, dtype=tf.float32)
+        return tf.reduce_sum(tensor, axis)
+
+    y_pred = K.clip(y_pred, 0, 3)
+    y_pred = K.round(y_pred)
+
+    smooth = 1e-8
+
+    y_true = K.squeeze(y_true, axis=-1)
+    y_true = to_binary(y_true)  # (3, b*h*w)
+    y_pred = to_binary(y_pred)  # (3, b*h*w)
+
+    intersection = tf.count_nonzero(tf.logical_and(y_true, y_pred), axis=1) + smooth
+    union = tf.count_nonzero(tf.logical_or(y_true, y_pred), axis=1) + smooth
+
+    return K.mean(2 * intersection / union)
+
 
 
 # TODO: Implement specificity and sensitivity metrics
