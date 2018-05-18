@@ -12,6 +12,7 @@ import metrics
 from keras_slice_generator import SliceGenerator
 from read_data import BRATSReader
 from predict_callback import PredictCallback
+import keras.losses as losses
 
 # FIXME: bug in Keras makes batchnorm fail with float16, but float16 can be a lot faster if there's a fix.
 K.set_floatx('float32')
@@ -80,12 +81,12 @@ class myUnet(object):
         u224 = self.__unpool_block(pooled=u112, prepooled=conv224, block_num=4)
 
         # TODO: Change this to softmax, update loss
-        predictions = Conv2D(filters=4, kernel_size=1, activation='softmax', name='predictions')(u224)
+        predictions = Conv2D(filters=1, kernel_size=1, activation='linear', name='predictions')(u224)
         masked_predictions = Lambda(metrics.keras_mask_predictions)([inputs, predictions])
 
         model = Model(inputs=inputs, outputs=masked_predictions)
 
-        model.compile(optimizer=Adam(lr=1e-4), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+        model.compile(optimizer=Adam(lr=1e-4), loss=losses.mean_squared_error, metrics=[])
 
         return model
 
