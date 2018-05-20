@@ -10,7 +10,6 @@ from numpy import random
 from read_data import BRATSReader
 
 def next_bool(p):
-    print(rng.random())
     return rng.random() < p
 
 
@@ -29,13 +28,10 @@ def elastic_transform(image, label, alpha=500, sigma=20):
     x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
     indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
 
-    print('dtype', image.dtype)
     distored_image = map_coordinates(image, indices, order=1, mode='reflect')
-    print(label.shape)
     distored_label = map_coordinates(np.expand_dims(label, -1), indices, order=1, mode='reflect')
 
     img, lab = distored_image.reshape(image.shape), distored_label.reshape(image.shape)[:, :, 0]
-    print(((image - img)**2).sum())
     return img, lab
 
 # Inspired by https://arxiv.org/pdf/1705.03820.pdf
