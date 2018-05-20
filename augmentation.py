@@ -1,17 +1,18 @@
 import numpy as np
-import random as rng
+import random
 import scipy.ndimage.interpolation as interpolate
 import scipy.misc
 from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
 from pylab import imshow, show, get_cmap
+import time
 from numpy import random
 
 from read_data import BRATSReader
 
 def next_bool(p):
-    print(rng.random())
-    return rng.random() < p
+    print(random.random())
+    return random.random() < p
 
 
 def elastic_transform(image, label, alpha=500, sigma=20):
@@ -48,7 +49,7 @@ def train_augmentation(sample, label):
     # brighness_factor = rng.uniform(.9, 1.1)
     # sample *= brighness_factor
     # sample *= np.random.rand(*sample.shape[0:-1], 1) * .1
-
+    sample = sample.astype(np.float32)
     # flipping
     if next_bool(.5):
         sample = np.flip(sample, haxis)
@@ -131,8 +132,7 @@ if __name__ == '__main__':
     # print(brats.get_mean_dev(.15, 't1ce'))
     train_ids, val_ids, test_ids = brats.get_case_ids(.5)
     case = brats.get_case(train_ids[0])
-    random.seed()
-    np.random.seed()
+
 
     label = case['labels']
     slice = np.empty((240, 240, 4))
@@ -144,6 +144,8 @@ if __name__ == '__main__':
     slice[:, :, 3] = case['flair'][:, :, slice_index]
 
     orig_slice = slice
+    random.seed()
+    np.random.seed()
     slice, label = train_augmentation(slice, label[:,:,slice_index])
     slice = slice[:, :, 0]
     scipy.misc.toimage(orig_slice[:,:,0], mode='L').show(title='orig data')
