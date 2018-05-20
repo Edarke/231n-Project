@@ -1,19 +1,20 @@
 import numpy as np
 import random as rng
 import scipy.ndimage.interpolation as interpolate
-import cv2
 import scipy.misc
 from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
 from pylab import imshow, show, get_cmap
 from numpy import random
 
+from read_data import BRATSReader
 
 def next_bool(p):
+    print(rng.random())
     return rng.random() < p
 
 
-def elastic_transform(image, label, alpha=720, sigma=24):
+def elastic_transform(image, label, alpha=500, sigma=20):
     """Elastic deformation of images as described in [Simard2003]_.
     .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
        Convolutional Neural Networks applied to Visual Document Analysis", in
@@ -30,10 +31,12 @@ def elastic_transform(image, label, alpha=720, sigma=24):
 
     print('dtype', image.dtype)
     distored_image = map_coordinates(image, indices, order=1, mode='reflect')
+    print(label.shape)
     distored_label = map_coordinates(np.expand_dims(label, -1), indices, order=1, mode='reflect')
 
-    return distored_image.reshape(image.shape), distored_label.reshape(image.shape[:2])
-
+    img, lab = distored_image.reshape(image.shape), distored_label.reshape(image.shape)[:, :, 0]
+    print(((image - img)**2).sum())
+    return img, lab
 
 # Inspired by https://arxiv.org/pdf/1705.03820.pdf
 def train_augmentation(sample, label):
@@ -71,7 +74,8 @@ def train_augmentation(sample, label):
     # label = scipy.misc.imrotate(label, rotation_degree, interpolate='nearest')
     # sample = interpolate.rotate(sample, angle=rotation_degree, axes=axial_plane)
     # label = interpolate.rotate(label, angle=rotation_degree, axes=axial_plane)
-    #sample, label = elastic_transform(sample, label)
+    if next_bool(1):
+        sample, label = elastic_transform(sample, label)
     return sample, label
 
 
@@ -126,4 +130,26 @@ def preprocess(data, labels, config):
 
 
 if __name__ == '__main__':
-    pass
+    brats = BRATSReader(use_hgg=True, use_lgg=False)
+    # print(brats.get_mean_dev(.15, 't1ce'))
+    train_ids, val_ids, test_ids = brats.get_case_ids(.5)
+    case = brats.get_case(train_ids[0])
+    random.seed()
+    np.random.seed()
+
+    label = case['labels']
+    slice = np.empty((240, 240, 4))
+    slice_index = np.argmax(label.sum(0).sum(0), axis=0)
+    orig = label[:, :, slice_index]
+    slice[:, :, 0] = case['t1ce'][:, :, slice_index]
+    slice[:, :, 1] = case['t1'][:, :, slice_index]
+    slice[:, :, 2] = case['t2'][:, :, slice_index]
+    slice[:, :, 3] = case['flair'][:, :, slice_index]
+
+    orig_slice = slice
+    slice, label = train_augmentation(slice, label[:,:,slice_index])
+    slice = slice[:, :, 0]
+    scipy.misc.toimage(orig_slice[:,:,0], mode='L').show(title='orig data')
+    scipy.misc.toimage(slice, mode='L').show(title='data')
+    scipy.misc.toimage(label * 255, mode='L').show(title='augmented label')
+    scipy.misc.toimage(orig * 255, mode='L').show(title='original label')
