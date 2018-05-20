@@ -1,5 +1,7 @@
 **CS231n Project**
 
+CRF https://github.com/lucasb-eyer/pydensecrf/tree/94d1cddab277e6e93812dfe7daca7d4693560758
+
 
 *Existing work by Sergi Valverde*: https://github.com/sergivalverde/cnn-ms-lesion-segmentation
 
