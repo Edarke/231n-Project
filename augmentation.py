@@ -10,6 +10,7 @@ from numpy import random
 from read_data import BRATSReader
 
 def next_bool(p):
+    print(rng.random())
     return rng.random() < p
 
 
