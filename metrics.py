@@ -89,7 +89,7 @@ def category_dice_score(category):
         def to_binary(y):
             y = tf.reshape(y, [-1])
             wt = y >= category
-            return wt
+            return tf.cast(wt, tf.float32)
 
         y_pred = tf.cumsum(y_pred, axis=-1, exclusive=False, reverse=False)
         y_pred = tf.cast(y_pred >= .5, dtype=tf.float32)
@@ -104,7 +104,7 @@ def category_dice_score(category):
         y_true = to_binary(y_true)  # (3, b*h*w)
         y_pred = to_binary(y_pred)  # (3, b*h*w)
 
-        intersection = tf.count_nonzero(tf.logical_and(y_true, y_pred), dtype=tf.float32) + smooth
-        union = tf.count_nonzero(y_true, dtype=tf.float32) + tf.count_nonzero(y_pred, dtype=tf.float32) + smooth
+        intersection = tf.reduce_sum(tf.multiply(y_true, y_pred)) + smooth
+        union = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth
         return 2 * intersection / union
     return hard_dice
