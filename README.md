@@ -8,6 +8,7 @@ TODO:
 
 - CRF (Jamil for CRF, Evan for training loop)
 - Additional public data (Jamil)
+- Use subset of channels to reduce overfitting (read short papers)
 
 - dilated convolutions  
 - Architecture search, Per channels convolutions

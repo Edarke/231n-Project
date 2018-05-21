@@ -1,21 +1,28 @@
 import numpy as np
 import random
-import scipy.ndimage.interpolation as interpolate
 import scipy.misc
 from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
-from pylab import imshow, show, get_cmap
-import time
 from numpy import random
-
 from read_data import BRATSReader
 
 def next_bool(p):
-    print(random.random())
     return random.random() < p
 
+num_filters = 16
+alpha = 500
+sigma = 20
+dxs = np.random.uniform(-1, 1, (num_filters, 240, 240, 4))
+dys = np.random.uniform(-1, 1, (num_filters, 240, 240, 4))
 
-def elastic_transform(image, label, alpha=500, sigma=20):
+for i in range(num_filters):
+    dxs[i] = gaussian_filter(dxs[i], sigma, mode="constant", cval=0) * alpha
+    dys[i] = gaussian_filter(dys[i], sigma, mode="constant", cval=0) * alpha
+
+x, y, z = np.meshgrid(np.arange(240), np.arange(240), np.arange(4))
+
+
+def elastic_transform(image, label):
     """Elastic deformation of images as described in [Simard2003]_.
     .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
        Convolutional Neural Networks applied to Visual Document Analysis", in
@@ -23,11 +30,9 @@ def elastic_transform(image, label, alpha=500, sigma=20):
        Recognition, 2003.
     """
     # Params taken from https://arxiv.org/pdf/1705.03820.pdf
-    shape = image.shape
-    dx = gaussian_filter((np.random.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
-    dy = gaussian_filter((np.random.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+    dx = dxs[np.random.randint(0, len(dxs))]
+    dy = dys[np.random.randint(0, len(dys))]
 
-    x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
     indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
 
     distored_image = map_coordinates(image, indices, order=1, mode='reflect')
@@ -79,9 +84,6 @@ def train_augmentation(sample, label):
 
 def test_augmentation(sample, label):
     return sample, label
-
-
-
 
 def preprocess(data, labels, config):
     """
