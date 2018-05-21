@@ -95,11 +95,14 @@ class myUnet(object):
     def train(self, train_gen, val_gen):
         model = self.__get_unet()
         print('Fitting model...')
+        weights_file = 'unet.hdf5'
+        if os.path.isfile(weights_file):
+            model.load_weights(weights_file)
 
         predict_train_callback = PredictCallback(train_gen, self.config, 'train')
         predict_val_callback = PredictCallback(val_gen, self.config, 'val')
 
-        model_checkpoint = ModelCheckpoint(self.config.results_path + '/unet.hdf5', monitor='val_loss', verbose=1, save_best_only=True)
+        model_checkpoint = ModelCheckpoint(self.config.results_path + '/' + weights_file, monitor='val_loss', verbose=1, save_best_only=True)
         logger = CSVLogger(self.config.results_path + '/results.csv')
         tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,  write_graph=True, write_images=True)
         earlystopping = EarlyStopping(monitor='val_loss', patience=50)
