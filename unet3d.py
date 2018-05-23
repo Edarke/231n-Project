@@ -9,7 +9,7 @@ from keras.optimizers import *
 from keras import backend as K
 import config as configuration
 import metrics
-from keras_slice_generator import SliceGenerator
+from keras_slice_generator import SliceGenerator, SliceGenerator3D
 from read_data import BRATSReader
 import keras.metrics
 from predict_callback import PredictCallback
@@ -27,7 +27,7 @@ class UNet3D(object):
         self.config = config
         self.img_rows = 224
         self.img_cols = 224
-        self.img_depth = 155
+        self.img_depth = 128
 
     def __pool_layer(self, input, filters, block_num, drop_prob=.2, activation='relu', padding='same', init='he_uniform'):
         block_num = str(block_num)
@@ -56,7 +56,7 @@ class UNet3D(object):
         conv1 = Conv3D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init, kernel_regularizer=reg, name=prefix+'1')(up1)
         conv1 = BatchNormalization()(conv1)
 
-        merged = concatenate([prepooled, conv1], axis=3, name='merge' + block_num)
+        merged = concatenate([prepooled, conv1], axis=4, name='merge' + block_num)
         conv1 = Conv3D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init, kernel_regularizer=reg, name=prefix + '2')(merged)
         conv1 = BatchNormalization()(conv1)
 
@@ -68,8 +68,8 @@ class UNet3D(object):
         return conv1
 
     def __get_unet(self):
-        inputs = Input((self.img_rows, self.img_cols, 4))  # (b, 224, 224, 1)
-        filters = 16  # 64
+        inputs = Input((self.img_rows, self.img_cols, self.img_depth, 4))  # (b, 224, 224, 1)
+        filters = 8 # 64
 
         conv224, p112 = self.__pool_layer(inputs, filters=filters, block_num=1)  # (b, 112, 112, 16)
         conv112, p56 = self.__pool_layer(p112, filters=filters*2, block_num=2)   # (b, 56, 56, 32)
@@ -119,9 +119,9 @@ if __name__ == '__main__':
     train_ids, val_ids, test_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = SliceGenerator3D(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, slices, 4), config=config, augmentor=None)
-    val_datagen = SliceGenerator3D(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, slices, 4), config=config, augmentor=None)
+    train_datagen = SliceGenerator3D(brats, slices, train_ids, dim=(1, height, width, slices, 4), config=config, augmentor=None)
+    val_datagen = SliceGenerator3D(brats, slices, val_ids, dim=(1, height, width, slices, 4), config=config, augmentor=None)
 
-    myunet = 3DUnet(config)
+    myunet = UNet3D(config)
     myunet.train(train_datagen, val_datagen)
     myunet.save_img()

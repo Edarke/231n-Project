@@ -136,7 +136,7 @@ def preprocess3d(data, labels, config):
     # Crop or pad to 224x224x224
     h_diff = 224 - H
     w_diff = 224 - W
-    d_diff = 224 - D
+    d_diff = 128 - D
 
     pad_dims = [(0, 0)]
     if h_diff > 0:
@@ -166,8 +166,9 @@ def preprocess3d(data, labels, config):
         pad_down = d_diff // 2 + d_diff % 2
         pad_dims.append((pad_up, pad_down))
     elif d_diff < 0:
-        slice_up = -1 * d_diff // 2
-        slice_down = -1 * (d_diff // 2 - d_diff % 2)
+        d_diff *= -1
+        slice_up = d_diff // 2
+        slice_down =  (d_diff // 2 + d_diff % 2)
         data = data[:, :, :, slice_up:-slice_down, :]
         labels = labels[:, :, :, slice_up:-slice_down, :]
         pad_dims.append((0, 0))

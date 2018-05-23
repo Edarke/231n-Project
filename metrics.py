@@ -39,8 +39,8 @@ def keras_dice_coef_loss(smooth=1e-8):
         y_true = K.one_hot(K.cast(y_true, 'int32'), 4)  # (b, h, w, 4)
 
         # Ignore void class
-        y_true = y_true[:, :, :, 1:]  # (b, h, w, 3)
-        y_pred = y_pred[:, :, :, 1:]  # (b, h, w, 3)
+        y_true = y_true[:, :, :, :, 1:]  # (b, h, w, 3)
+        y_pred = y_pred[:, :, :, :, 1:]  # (b, h, w, 3)
 
         y_true = K.reshape(y_true, (-1, 3))  # (n, 3)
         y_pred = K.reshape(y_pred, (-1, 3))  # (n, 3)
