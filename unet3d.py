@@ -119,9 +119,9 @@ if __name__ == '__main__':
     train_ids, val_ids, test_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4), config=config, augmentor=augmentation.train_augmentation)
-    val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config, augmentor=augmentation.test_augmentation)
+    train_datagen = SliceGenerator3D(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, slices, 4), config=config, augmentor=None)
+    val_datagen = SliceGenerator3D(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, slices, 4), config=config, augmentor=None)
 
-    myunet = myUnet(config)
+    myunet = 3DUnet(config)
     myunet.train(train_datagen, val_datagen)
     myunet.save_img()
