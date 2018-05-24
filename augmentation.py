@@ -127,11 +127,18 @@ def preprocess(data, labels, config):
 
     data = np.pad(data, pad_dims, mode='constant', constant_values=0)
     labels = np.pad(labels, pad_dims, mode='constant', constant_values=0)
-    return (data - config.mean) / config.std, labels
+    return data, labels
 
 
 
 if __name__ == '__main__':
+    ones = np.ones((5, 5), dtype=np.int8)
+    ones = np.pad(ones, 4, mode='constant')
+    ones = scipy.misc.imrotate(ones, 20, interp='nearest')
+
+    print(ones)
+
+
     brats = BRATSReader(use_hgg=True, use_lgg=False)
     # print(brats.get_mean_dev(.15, 't1ce'))
     train_ids, val_ids, test_ids = brats.get_case_ids(.5)
