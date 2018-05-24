@@ -89,6 +89,42 @@ def visualize(original, prediction, labels):
     return joint_img
 
 
+def crf(input, probs):
+    pass
+
+
+def np_dice_score(y_true, y_pred, category):
+    def to_binary(y):
+        y = y.reshape([y.shape[0], -1])  # (b, w*h)
+        wt = y >= category
+        return np.cast(wt, np.float32)
+
+    y_pred = np.cumsum(y_pred, axis=-1)  # (b, h, w, c)
+    y_pred = np.cast(y_pred >= .5, dtype=np.float32)  # (b, h, w, c)
+    y_pred = np.argmax(y_pred, axis=-1)  # (b, h, w)
+
+    smooth = 1e-8
+
+    y_true = to_binary(y_true)  # (b, h*w)
+    y_pred = to_binary(y_pred)  # (b, h*w)
+
+    intersection = np.sum(np.multiply(y_true, y_pred), axis=1) + smooth
+    union = np.sum(y_true, axis=1) + np.sum(y_pred, axis=1) + smooth
+    return np.sum(2 * intersection / union, axis=0)
+
+
+def evaluate(model, generator):
+    scores = np.array([0, 0, 0])
+    total = 0
+    for input, label in generator:
+        probs = model.predict(input)
+        probs = crf(input, probs)
+        total += label.shape[0]
+        scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+    return scores / total
+
+
+
 # For testing
 if __name__ == '__main__':
     # Test case

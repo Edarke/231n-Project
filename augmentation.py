@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import scipy.misc
-from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage.interpolation import map_coordinates, rotate
 from scipy.ndimage.filters import gaussian_filter
 from numpy import random
 from read_data import BRATSReader
@@ -74,11 +74,9 @@ def train_augmentation(sample, label):
     #sample = interpolate.zoom(sample, zoom=zoom_factor)
     #label = interpolate.zoom(label, zoom=zoom_factor, )
     #
-    # rotation_degree = rng.uniform(-10, 10)
-    # sample = scipy.misc.imrotate(sample, rotation_degree, interpolate='bilinear')
-    # label = scipy.misc.imrotate(label, rotation_degree, interpolate='nearest')
-    # sample = interpolate.rotate(sample, angle=rotation_degree, axes=axial_plane)
-    # label = interpolate.rotate(label, angle=rotation_degree, axes=axial_plane)
+    rotation_degree = random.uniform(-10, 10)
+    sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='edge')
+    label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='edge')
     if next_bool(1):
         sample, label = elastic_transform(sample, label)
     return sample, label
@@ -132,6 +130,13 @@ def preprocess(data, labels, config):
 
 
 if __name__ == '__main__':
+    ones = np.ones((10, 10, 10), dtype=np.uint8)
+    ones = np.pad(ones, 2, mode='constant', constant_values=2)
+    print(ones[..., 5])
+    ones = rotate(ones, angle=10, axes=[0, 1], mode='nearest')
+    print(ones[:, :, 5])
+
+
     brats = BRATSReader(use_hgg=True, use_lgg=False)
     # print(brats.get_mean_dev(.15, 't1ce'))
     train_ids, val_ids, test_ids = brats.get_case_ids(.5)

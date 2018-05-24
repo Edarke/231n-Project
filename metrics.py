@@ -87,24 +87,20 @@ def category_dice_score(category):
         :return:
         '''
         def to_binary(y):
-            y = tf.reshape(y, [-1])
+            y = tf.layers.flatten(y)  # (b, w*h)
             wt = y >= category
             return tf.cast(wt, tf.float32)
 
-        y_pred = tf.cumsum(y_pred, axis=-1, exclusive=False, reverse=False)
-        y_pred = tf.cast(y_pred >= .5, dtype=tf.float32)
-        y_pred = tf.argmax(y_pred, axis=-1)
-
-        # y_pred = K.clip(y_pred, 0, 3)
-        # y_pred = K.round(y_pred)
+        y_pred = tf.cumsum(y_pred, axis=-1, exclusive=False, reverse=False)  # (b, h, w, c)
+        y_pred = tf.cast(y_pred >= .5, dtype=tf.float32)  # (b, h, w, c)
+        y_pred = tf.argmax(y_pred, axis=-1)  # (b, h, w)
 
         smooth = 1e-8
 
-        y_true = K.squeeze(y_true, axis=-1)
-        y_true = to_binary(y_true)  # (3, b*h*w)
-        y_pred = to_binary(y_pred)  # (3, b*h*w)
+        y_true = to_binary(y_true)  # (b, h*w)
+        y_pred = to_binary(y_pred)  # (b, h*w)
 
-        intersection = tf.reduce_sum(tf.multiply(y_true, y_pred)) + smooth
-        union = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth
-        return 2 * intersection / union
+        intersection = tf.reduce_sum(tf.multiply(y_true, y_pred), axis=1) + smooth
+        union = tf.reduce_sum(y_true, axis=1) + tf.reduce_sum(y_pred, axis=1) + smooth
+        return tf.reduce_mean(2 * intersection / union, axis=0)
     return hard_dice
