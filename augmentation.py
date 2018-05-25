@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import scipy.misc
-from scipy.ndimage.interpolation import map_coordinates, rotate
+from scipy.ndimage.interpolation import map_coordinates, rotate, zoom
 from scipy.ndimage.filters import gaussian_filter
 from numpy import random
 from read_data import BRATSReader
@@ -35,13 +35,28 @@ def elastic_transform(image, label):
     dx = dxs[np.random.randint(0, len(dxs))]
     dy = dys[np.random.randint(0, len(dys))]
 
-    indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
+    indices = np.reshape(y + dy, (-1, 1)), np.reshape(x + dx, (-1, 1)), np.reshape(z, (-1, 1))
 
     distored_image = map_coordinates(image, indices, order=1, mode='reflect')
     distored_label = map_coordinates(np.expand_dims(label, -1), indices, order=1, mode='reflect')
 
     img, lab = distored_image.reshape(image.shape), distored_label.reshape(image.shape)[:, :, 0]
     return img, lab
+
+
+def crop_center(img, h, w):
+    '''
+    Crop center of ndarray so result as size h, w, c.
+
+    :param img:
+    :param h:
+    :param w:
+    :return:
+    '''
+    hh, ww = img.shape[:2]
+    starth = (hh - h) // 2
+    startw = (ww - w) // 2
+    return img[starth:starth + h, startw:startw + w, ...]
 
 
 # Inspired by https://arxiv.org/pdf/1705.03820.pdf
@@ -68,19 +83,18 @@ def train_augmentation(sample, label):
 
     # 180 degree rotation
     if next_bool(.5):
-        rotations = np.random.randint(0, 4)
-        sample = np.rot90(sample, rotations, axes=axial_plane)
-        label = np.rot90(label, rotations, axes=axial_plane)
+        sample = np.rot90(sample, 2, axes=axial_plane)
+        label = np.rot90(label, 2, axes=axial_plane)
 
-    # zoom_factor = rng.uniform(.9, 1.1)
-    #sample = interpolate.zoom(sample, zoom=zoom_factor)
-    #label = interpolate.zoom(label, zoom=zoom_factor, )
+    zoom_factor = random.uniform(.9, 1.1)
+    sample = zoom(sample, zoom=zoom_factor, order=0)
+    label = zoom(label, zoom=zoom_factor, order=0)
     #
-    # rotation_degree = random.uniform(-10, 10)
-    # sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='nearest')
-    # label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='nearest')
-    if next_bool(1):
-        sample, label = elastic_transform(sample, label)
+    rotation_degree = random.uniform(-10, 10)
+    sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='nearest')
+    label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='nearest')
+
+    sample, label = elastic_transform(sample, label)
     return sample, label
 
 
@@ -144,7 +158,6 @@ if __name__ == '__main__':
     train_ids, val_ids, test_ids = brats.get_case_ids(.5)
     case = brats.get_case(train_ids[0])
 
-
     label = case['labels']
     slice = np.empty((224, 224, 4))
     slice_index = np.argmax(label.sum(0).sum(0), axis=0)
@@ -157,9 +170,9 @@ if __name__ == '__main__':
     orig_slice = slice
     random.seed()
     np.random.seed()
-    slice, label = train_augmentation(slice, label[:,:,slice_index])
+    slice, label = train_augmentation(slice, label[:, :, slice_index])
     slice = slice[:, :, 0]
-    scipy.misc.toimage(orig_slice[:,:,0], mode='L').show(title='orig data')
+    scipy.misc.toimage(orig_slice[:, :, 0], mode='L').show(title='orig data')
     scipy.misc.toimage(slice, mode='L').show(title='data')
     scipy.misc.toimage(label * 255, mode='L').show(title='augmented label')
     scipy.misc.toimage(orig * 255, mode='L').show(title='original label')
