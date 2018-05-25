@@ -56,8 +56,8 @@ def crop_center(img, h, w):
     hh, ww = img.shape[:2]
     starth = (hh - h) // 2
     startw = (ww - w) // 2
-    return img[starth:starth + h, startw:startw + w, ...]
-
+    img = img[starth:starth + h, startw:startw + w, ...]
+    return img
 
 # Inspired by https://arxiv.org/pdf/1705.03820.pdf
 def train_augmentation(sample, label):
@@ -86,9 +86,9 @@ def train_augmentation(sample, label):
         sample = np.rot90(sample, 2, axes=axial_plane)
         label = np.rot90(label, 2, axes=axial_plane)
 
-    zoom_factor = random.uniform(.9, 1.1)
-    sample = zoom(sample, zoom=zoom_factor, order=0)
-    label = zoom(label, zoom=zoom_factor, order=0)
+    # zoom_factor = random.uniform(.9, 1.1)
+    # sample = zoom(sample, zoom=zoom_factor, order=0)
+    # label = zoom(label, zoom=zoom_factor, order=0)
     #
     rotation_degree = random.uniform(-10, 10)
     sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='nearest')

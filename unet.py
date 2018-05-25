@@ -135,15 +135,14 @@ class myUnet(object):
     def save_img(self):
         pass
 
-
-def evalute_train_and_val_set(unet, train_gen, val_gen):
-    model = unet.model  # Make sure unet.hdf5 is in the current directory
-    scores, scores_crf = eval.evaluate(model, train_gen)
-    print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
-    print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
-    scores, scores_crf = eval.evaluate(model, val_gen)
-    print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
-    print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
+    def evalute_train_and_val_set(self, train_gen, val_gen):
+        model = self.model  # Make sure unet.hdf5 is in the current directory
+        scores, scores_crf = eval.evaluate(model, train_gen)
+        print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
+        scores, scores_crf = eval.evaluate(model, val_gen)
+        print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
 
 
 if __name__ == '__main__':
@@ -159,9 +158,8 @@ if __name__ == '__main__':
     val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config,
                                  augmentor=augmentation.test_augmentation)
 
-    myunet = myUnet(config)
+    net = myUnet(config)
+    net.evalute_train_and_val_set(train_datagen, val_datagen)
 
 
-
-    myunet.train(train_datagen, val_datagen)
-    myunet.save_img()
+    # myunet.train(train_datagen, val_datagen)
