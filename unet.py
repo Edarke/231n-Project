@@ -16,6 +16,8 @@ from predict_callback import PredictCallback
 import keras.losses as losses
 from tkinter import *
 import augmentation
+import eval
+
 
 # FIXME: bug in Keras makes batchnorm fail with float16, but float16 can be a lot faster if there's a fix.
 K.set_floatx('float32')
@@ -26,6 +28,8 @@ class myUnet(object):
         self.config = config
         self.img_rows = 224
         self.img_cols = 224
+        self.model = self.__get_unet()
+
 
     def __pool_layer(self, input, filters, block_num, drop_prob=.2, activation='relu', padding='same',
                      init='he_uniform'):
@@ -102,11 +106,11 @@ class myUnet(object):
         return model
 
     def train(self, train_gen, val_gen):
-        model = self.__get_unet()
         print('Fitting model...')
         weights_file = 'unet.hdf5'
         if os.path.isfile(weights_file):
-            model.load_weights(weights_file)
+            print('Loading weights from ', weights_file)
+            self.model.load_weights(weights_file)
 
         predict_train_callback = PredictCallback(train_gen, self.config, 'train')
         predict_val_callback = PredictCallback(val_gen, self.config, 'val')
@@ -120,7 +124,7 @@ class myUnet(object):
         earlystopping = EarlyStopping(monitor='val_loss', patience=50)
         callbacks = [TerminateOnNaN(), earlystopping, model_checkpoint, predict_train_callback, predict_val_callback,
                      logger, tensorboard]
-        history = model.fit_generator(generator=train_gen,
+        history = self.model.fit_generator(generator=train_gen,
                                       steps_per_epoch=len(train_gen),
                                       validation_data=val_gen,
                                       validation_steps=len(val_gen),
@@ -131,6 +135,16 @@ class myUnet(object):
 
     def save_img(self):
         pass
+
+
+def evalute_train_and_val_set(unet, train_gen, val_gen):
+    model = unet.model  # Make sure unet.hdf5 is in the current directory
+    scores, scores_crf = eval.evaluate(model, train_gen)
+    print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+    print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
+    scores, scores_crf = eval.evaluate(model, val_gen)
+    print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+    print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
 
 
 if __name__ == '__main__':

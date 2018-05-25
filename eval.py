@@ -1,10 +1,6 @@
 import numpy as np
 import scipy.misc as misc
 from PIL import Image
-import keras.utils
-import keras.backend as K
-
-
 from read_data import ATLASReader
 
 _true_color = np.array([[[255, 0, 0, 75]]])
@@ -90,17 +86,17 @@ def visualize(original, prediction, labels):
 
 
 def crf(input, probs):
-    pass
+    return probs
 
 
 def np_dice_score(y_true, y_pred, category):
     def to_binary(y):
         y = y.reshape([y.shape[0], -1])  # (b, w*h)
         wt = y >= category
-        return np.cast(wt, np.float32)
+        return wt.astype(np.float32)
 
     y_pred = np.cumsum(y_pred, axis=-1)  # (b, h, w, c)
-    y_pred = np.cast(y_pred >= .5, dtype=np.float32)  # (b, h, w, c)
+    y_pred = (y_pred >= .5).astype(dtype=np.float32)  # (b, h, w, c)
     y_pred = np.argmax(y_pred, axis=-1)  # (b, h, w)
 
     smooth = 1e-8
@@ -108,21 +104,27 @@ def np_dice_score(y_true, y_pred, category):
     y_true = to_binary(y_true)  # (b, h*w)
     y_pred = to_binary(y_pred)  # (b, h*w)
 
-    intersection = np.sum(np.multiply(y_true, y_pred), axis=1) + smooth
+    intersection = 2 * np.sum(np.multiply(y_true, y_pred), axis=1) + smooth
     union = np.sum(y_true, axis=1) + np.sum(y_pred, axis=1) + smooth
-    return np.sum(2 * intersection / union, axis=0)
+    return np.sum(intersection / union, axis=0)
 
 
 def evaluate(model, generator):
-    scores = np.array([0, 0, 0])
+    scores = np.array([0., 0., 0.])
+    crf_scores = np.array([0., 0., 0.])
+
     total = 0
     for input, label in generator:
-        probs = model.predict(input)
+        if label.shape[0] == 0:
+            break
+
+        probs = model.predict_on_batch(input)
+        scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+
         probs = crf(input, probs)
         total += label.shape[0]
-        scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
-    return scores / total
-
+        crf_scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+    return scores / total, crf_scores / total
 
 
 # For testing
