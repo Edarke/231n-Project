@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import scipy.misc
-from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage.interpolation import map_coordinates, rotate
 from scipy.ndimage.filters import gaussian_filter
 from numpy import random
 from read_data import BRATSReader
@@ -43,6 +43,7 @@ def elastic_transform(image, label):
     img, lab = distored_image.reshape(image.shape), distored_label.reshape(image.shape)[:, :, 0]
     return img, lab
 
+
 # Inspired by https://arxiv.org/pdf/1705.03820.pdf
 def train_augmentation(sample, label):
     '''
@@ -67,18 +68,17 @@ def train_augmentation(sample, label):
 
     # 180 degree rotation
     if next_bool(.5):
-        sample = np.rot90(sample, 2, axes=axial_plane)
-        label = np.rot90(label, 2, axes=axial_plane)
+        rotations = np.random.randint(0, 4)
+        sample = np.rot90(sample, rotations, axes=axial_plane)
+        label = np.rot90(label, rotations, axes=axial_plane)
 
     # zoom_factor = rng.uniform(.9, 1.1)
     #sample = interpolate.zoom(sample, zoom=zoom_factor)
     #label = interpolate.zoom(label, zoom=zoom_factor, )
     #
-    # rotation_degree = rng.uniform(-10, 10)
-    # sample = scipy.misc.imrotate(sample, rotation_degree, interpolate='bilinear')
-    # label = scipy.misc.imrotate(label, rotation_degree, interpolate='nearest')
-    # sample = interpolate.rotate(sample, angle=rotation_degree, axes=axial_plane)
-    # label = interpolate.rotate(label, angle=rotation_degree, axes=axial_plane)
+    # rotation_degree = random.uniform(-10, 10)
+    # sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='nearest')
+    # label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='nearest')
     if next_bool(1):
         sample, label = elastic_transform(sample, label)
     return sample, label
@@ -86,6 +86,7 @@ def train_augmentation(sample, label):
 
 def test_augmentation(sample, label):
     return sample, label
+
 
 def preprocess(data, labels, config):
     """
@@ -130,14 +131,13 @@ def preprocess(data, labels, config):
     return data, labels
 
 
-
 if __name__ == '__main__':
-    ones = np.ones((5, 5), dtype=np.int8)
-    ones = np.pad(ones, 4, mode='constant')
-    ones = scipy.misc.imrotate(ones, 20, interp='nearest')
-
-    print(ones)
-
+    ones = np.ones((1, 250, 250, 4), dtype=np.uint8)
+    ones, labels = preprocess(ones, ones, None)
+    print(ones[0, :, :, 2].shape)
+    ones = ones[0, :, :, :]
+    train, label = train_augmentation(ones, ones[:, :, 0])
+    print(train.shape, label.shape)
 
     brats = BRATSReader(use_hgg=True, use_lgg=False)
     # print(brats.get_mean_dev(.15, 't1ce'))
@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
 
     label = case['labels']
-    slice = np.empty((240, 240, 4))
+    slice = np.empty((224, 224, 4))
     slice_index = np.argmax(label.sum(0).sum(0), axis=0)
     orig = label[:, :, slice_index]
     slice[:, :, 0] = case['t1ce'][:, :, slice_index]
