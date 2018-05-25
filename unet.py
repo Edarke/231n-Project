@@ -159,7 +159,5 @@ if __name__ == '__main__':
                                  augmentor=augmentation.test_augmentation)
 
     net = myUnet(config)
-    net.evalute_train_and_val_set(train_datagen, val_datagen)
-
-
-    # myunet.train(train_datagen, val_datagen)
+    # net.evalute_train_and_val_set(train_datagen, val_datagen)
+    net.train(train_datagen, val_datagen)
