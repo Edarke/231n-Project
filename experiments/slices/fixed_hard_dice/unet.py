@@ -30,7 +30,8 @@ class myUnet(object):
         self.img_cols = 224
         self.model = self.__get_unet()
 
-    def __pool_layer(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
+
+    def __pool_layer(self, input, filters, block_num, drop_prob=.2, activation='relu', padding='same',
                      init='he_uniform'):
         block_num = str(block_num)
         prefix = 'conv' + block_num + '_'
@@ -160,8 +161,5 @@ if __name__ == '__main__':
                                  augmentor=augmentation.test_augmentation)
 
     myunet = myUnet(config)
-
-
-
     myunet.train(train_datagen, val_datagen)
     myunet.save_img()
