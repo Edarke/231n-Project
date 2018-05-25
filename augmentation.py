@@ -95,6 +95,8 @@ def train_augmentation(sample, label):
     label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='nearest')
 
     sample, label = elastic_transform(sample, label)
+    sample = crop_center(sample, 224, 224)
+    label = crop_center(label, 224, 224)
     return sample, label
 
 
