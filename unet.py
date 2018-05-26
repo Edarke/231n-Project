@@ -63,6 +63,8 @@ class myUnet(object):
 
 
         input = bottle_neck
+        block_num = str(block_num) + '_2'
+        prefix = 'conv' + block_num + '_2_'
         filters = input._keras_shape[-1]
 
         ones = Conv2D(filters // 2, 1, activation=activation, padding=padding, kernel_initializer=init,
@@ -139,10 +141,10 @@ class myUnet(object):
         filters = 16  # 64
 
         conv224, p112 = self.__pool_layer(inputs, filters=filters, block_num=1)  # (b, 112, 112, 64)
-        conv112, p56 = self.__inception_pool(p112, filters=filters * 2, block_num=2)  # (b, 56, 56, 128)
-        conv56, p28 = self.__inception_pool(p56, filters=filters * 4, block_num=3)  # (b, 28, 28, 256)
-        conv28, p14 = self.__inception_pool(p28, filters=filters * 8, block_num=4)  # (b, 14, 14, 512)
-        conv14, _ = self.__inception_pool(p14, filters=filters * 16, block_num=5)  # (b, 14, 14, 512)
+        conv112, p56 = self.__pool_layer(p112, filters=filters * 2, block_num=2)  # (b, 56, 56, 128)
+        conv56, p28 = self.__pool_layer(p56, filters=filters * 4, block_num=3)  # (b, 28, 28, 256)
+        conv28, p14 = self.__pool_layer(p28, filters=filters * 8, block_num=4)  # (b, 14, 14, 512)
+        conv14, _ = self.__pool_layer(p14, filters=filters * 16, block_num=5)  # (b, 14, 14, 512)
 
         # conv14 = Dropout(0.5)(conv14)
 
