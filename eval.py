@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.misc as misc
 from PIL import Image
+from tqdm import tqdm
+
 from read_data import ATLASReader
 
 _true_color = np.array([[[255, 0, 0, 75]]])
@@ -114,7 +116,8 @@ def evaluate(model, generator):
     crf_scores = np.array([0., 0., 0.])
 
     total = 0
-    for input, label in generator:
+    print('Evaluating Model')
+    for i, (input, label) in tqdm(enumerate(generator), total=len(generator), ncols=60):
         if label.shape[0] == 0:
             break
 

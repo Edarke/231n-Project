@@ -90,12 +90,14 @@ def train_augmentation(sample, label):
     # sample = zoom(sample, zoom=zoom_factor, order=0)
     # label = zoom(label, zoom=zoom_factor, order=0)
     #
-    rotation_degree = random.uniform(-10, 10)
-    sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='nearest')
-    label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='nearest')
 
-    sample = crop_center(sample, 224, 224)
-    label = crop_center(label, 224, 224)
+    if False:  # This is like super slow
+        rotation_degree = random.uniform(-10, 10)
+        sample = rotate(sample, angle=rotation_degree, axes=axial_plane, mode='nearest')
+        label = rotate(label, angle=rotation_degree, axes=axial_plane, mode='nearest')
+
+        sample = crop_center(sample, 224, 224)
+        label = crop_center(label, 224, 224)
     sample, label = elastic_transform(sample, label)
 
     return sample, label
@@ -105,7 +107,7 @@ def test_augmentation(sample, label):
     return sample, label
 
 
-def preprocess(data, labels, config):
+def preprocess(data, labels):
     """
     :param data: (batch, height, width, depth)
     :param labels:  (batch, height, width, depth)

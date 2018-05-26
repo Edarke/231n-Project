@@ -30,6 +30,65 @@ class myUnet(object):
         self.img_cols = 224
         self.model = self.__get_unet()
 
+
+
+    def __inception_pool(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
+                     init='he_uniform'):
+        block_num = str(block_num)
+        prefix = 'conv' + block_num + '_'
+        reg = tf.keras.regularizers.l2(.0)
+        filters = input._keras_shape[-1]
+
+        ones = Conv2D(filters//2, 1, activation=activation, padding=padding, kernel_initializer=init,
+                       kernel_regularizer=reg, name=prefix + '1x1_1')(input)
+
+        threes = Conv2D(filters//4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1_3')(input)
+        threes = Conv2D(filters // 2 + filters // 4, 3, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '3x3_3')(threes)
+
+        fives = Conv2D(filters//4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1_5')(input)
+        fives = Conv2D(filters // 4 + filters // 8, 5, activation=activation, padding=padding, kernel_initializer=init,
+                        kernel_regularizer=reg, name=prefix + '3x3_5p1')(fives)
+
+        pool = MaxPool2D(pool_size=(3, 3), strides=1, padding=padding, name=block_num + 'pool3x3')(input)
+        pool = Conv2D(filters//4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1')(pool)
+        bottle_neck = concatenate([ones, threes, fives, pool], axis=3, name=block_num + '_bottleneck')
+
+        pooled = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(bottle_neck)
+        if drop_prob is not None:
+            pooled = Dropout(drop_prob, name='dropdown' + block_num)(pooled)
+
+
+        input = bottle_neck
+        filters = input._keras_shape[-1]
+
+        ones = Conv2D(filters // 2, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1_1')(input)
+
+        threes = Conv2D(filters // 4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                        kernel_regularizer=reg, name=prefix + '1x1_3')(input)
+        threes = Conv2D(filters // 2 + filters // 4, 3, activation=activation, padding=padding, kernel_initializer=init,
+                        kernel_regularizer=reg, name=prefix + '3x3_3')(threes)
+
+        fives = Conv2D(filters // 4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                       kernel_regularizer=reg, name=prefix + '1x1_5')(input)
+        fives = Conv2D(filters // 4 + filters // 8, 5, activation=activation, padding=padding, kernel_initializer=init,
+                       kernel_regularizer=reg, name=prefix + '3x3_5p1')(fives)
+
+        pool = MaxPool2D(pool_size=(3, 3), strides=1, padding=padding, name=block_num + 'pool3x3')(input)
+        pool = Conv2D(filters // 4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1')(pool)
+        bottle_neck = concatenate([ones, threes, fives, pool], axis=3, name=block_num + '_bottleneck')
+
+        pooled = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(bottle_neck)
+        if drop_prob is not None:
+            pooled = Dropout(drop_prob, name='dropdown' + block_num)(pooled)
+
+        return bottle_neck, pooled
+
     def __pool_layer(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
                      init='he_uniform'):
         block_num = str(block_num)
@@ -80,10 +139,10 @@ class myUnet(object):
         filters = 16  # 64
 
         conv224, p112 = self.__pool_layer(inputs, filters=filters, block_num=1)  # (b, 112, 112, 64)
-        conv112, p56 = self.__pool_layer(p112, filters=filters * 2, block_num=2)  # (b, 56, 56, 128)
-        conv56, p28 = self.__pool_layer(p56, filters=filters * 4, block_num=3)  # (b, 28, 28, 256)
-        conv28, p14 = self.__pool_layer(p28, filters=filters * 8, block_num=4)  # (b, 14, 14, 512)
-        conv14, _ = self.__pool_layer(p14, filters=filters * 16, block_num=5)  # (b, 14, 14, 512)
+        conv112, p56 = self.__inception_pool(p112, filters=filters * 2, block_num=2)  # (b, 56, 56, 128)
+        conv56, p28 = self.__inception_pool(p56, filters=filters * 4, block_num=3)  # (b, 28, 28, 256)
+        conv28, p14 = self.__inception_pool(p28, filters=filters * 8, block_num=4)  # (b, 14, 14, 512)
+        conv14, _ = self.__inception_pool(p14, filters=filters * 16, block_num=5)  # (b, 14, 14, 512)
 
         # conv14 = Dropout(0.5)(conv14)
 
@@ -147,6 +206,7 @@ class myUnet(object):
 
 if __name__ == '__main__':
     config = configuration.Config()
+    net = myUnet(config)
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
@@ -154,10 +214,9 @@ if __name__ == '__main__':
 
     height, width, slices = brats.get_dims()
     train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4),
-                                   config=config, augmentor=augmentation.train_augmentation)
+                                   config=config, augmentor=augmentation.test_augmentation)
     val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config,
                                  augmentor=augmentation.test_augmentation)
 
-    net = myUnet(config)
     # net.evalute_train_and_val_set(train_datagen, val_datagen)
     net.train(train_datagen, val_datagen)
