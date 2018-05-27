@@ -12,7 +12,6 @@ class SliceGenerator(keras.utils.Sequence):
         'Initialization'
         self.augmentor = augmentor
         self.reader = reader
-        self.config = config
         self.list_ids = list(itertools.product(list_ids, range(num_slices)))
         self.list_ids = sorted(self.list_ids)
 
@@ -20,7 +19,6 @@ class SliceGenerator(keras.utils.Sequence):
         self.dim = (height, width, channels)
         self.batch_size = batch
         self.n_channels = channels
-        self.on_epoch_end()
 
         self.cases = []
         self.use_ram = config.use_ram
@@ -35,12 +33,13 @@ class SliceGenerator(keras.utils.Sequence):
                 data = np.transpose(data, axes=[2, 0, 1, 3])
                 labels = np.expand_dims(labels, 0)
 
-                data, labels = preprocess(data, labels, config)
+                data, labels = preprocess(data, labels)
                 labels = np.transpose(np.squeeze(labels, 0), [2, 0, 1])
 
                 data = data.astype(np.float16)
                 labels = labels.astype(np.uint8)
                 self.cases.append((data, labels))
+        self.on_epoch_end()
 
     def normalize(self, x):
         mask = x[x > 0]
@@ -90,10 +89,13 @@ class SliceGenerator(keras.utils.Sequence):
             slice[:, :, 2] = self.normalize(dic['t2'])[:, :, slice_index]
             slice[:, :, 3] = self.normalize(dic['flair'])[:, :, slice_index]
 
-            X[i], y[i] = self.augmentor(slice, dic['labels'][:, :, slice_index])
+            X[i], y[i] = (slice, dic['labels'][:, :, slice_index])
 
         y = np.expand_dims(y, axis=-1)
-        return preprocess(X, y, self.config)
+        X, y = preprocess(X, y)
+        y = np.squeeze(y, axis=-1)
+        for i in range(X.shape[0]):
+            X[i], y[i] = self.augmentor(X[i], y[i])
 
     def get_sample_cases(self, num_samples=10):
         samples = self.list_ids[0:num_samples]

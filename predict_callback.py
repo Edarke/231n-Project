@@ -2,7 +2,7 @@ import os
 import sys
 
 import keras.callbacks
-import numpy as np
+
 
 import eval
 
@@ -25,3 +25,7 @@ class PredictCallback(keras.callbacks.Callback):
 #       for i, original in enumerate(originals):
 #           ex = eval.visualize(original, predictions[i], targets[i])
 #           ex.save(output_dir + str(i) + '.jpg', 'JPEG')
+
+#           crf_predictions = process_crf(processed[i, :, :, :], predictions[i, :, :, :]) # (224, 224, 4)
+#           crf_ex = eval.visualize(original, crf_predictions, targets[i])
+#           crf_ex.save(output_dir + str(i) + '_crf.jpg', 'JPEG')

@@ -1,5 +1,20 @@
 **CS231n Project**
 
+
+TODO:  
+- 3D net  (Jamil)
+- data augmentation (rotation) (Evan, Stephanie)
+- slices from different planes  (Stephanie)
+
+- CRF (Jamil for CRF, Evan for training loop)
+- Additional public data (Jamil)
+- Use subset of channels to reduce overfitting (read short papers)
+
+- dilated convolutions  
+- Architecture search, Per channels convolutions
+
+
+
 CRF https://github.com/lucasb-eyer/pydensecrf/tree/94d1cddab277e6e93812dfe7daca7d4693560758
 
 
