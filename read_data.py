@@ -273,3 +273,11 @@ class BRATSReaderTest(unittest.TestCase):
     def test_train_val_equal(self):
         self.assertEqual(len(self.val), len(self.test)) 
 
+
+def get_single_example(use_hgg=True, use_lgg=True):
+    breader = BRATSReader(use_hgg=True, use_lgg=True)
+    train, val, test = breader.get_case_ids()
+    case = breader.get_case(train[0])
+    data = np.stack([case['flair'], case['t1'], case['t1ce'], case['t2']], axis=-1)
+    return data, case['labels']
+    
