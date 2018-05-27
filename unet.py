@@ -30,10 +30,10 @@ class myUnet(object):
         self.img_cols = 224
         self.model = self.__get_unet()
 
-        weights_file = 'unet.hdf5'
-        if os.path.isfile(weights_file):
-            print('Loading weights from ', weights_file)
-            self.model.load_weights(weights_file)
+        self.weights_file = 'unet.hdf5'
+        if os.path.isfile(self.weights_file):
+            print('Loading weights from ', self.weights_file)
+            self.model.load_weights(self.weights_file)
 
     def atrous_spatial_pyramid_pooling(self, prefix):
         prefix = prefix + '_aspp_'
@@ -139,9 +139,9 @@ class myUnet(object):
 
         model = Model(inputs=inputs, outputs=masked_predictions)
         model.compile(optimizer=Adam(lr=1e-3), loss=metrics.keras_dice_coef_loss(),
-                      metrics=[metrics.category_dice_score(1),
-                               metrics.category_dice_score(2),
-                               metrics.category_dice_score(3)])
+                      metrics=[metrics.wt_dice,
+                               metrics.tc_dice,
+                               metrics.et_dice])
 
         return model
 
@@ -151,7 +151,7 @@ class myUnet(object):
         predict_train_callback = PredictCallback(train_gen, self.config, 'train')
         predict_val_callback = PredictCallback(val_gen, self.config, 'val')
 
-        model_checkpoint = ModelCheckpoint(self.config.results_path + '/' + weights_file,
+        model_checkpoint = ModelCheckpoint(self.config.results_path + '/' + self.weights_file,
                                            monitor='val_loss',
                                            verbose=1,
                                            save_best_only=True)
@@ -193,5 +193,5 @@ if __name__ == '__main__':
     val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config,
                                  augmentor=augmentation.test_augmentation)
 
-    #net.evalute_train_and_val_set(train_datagen, val_datagen)
+    # net.evalute_train_and_val_set(train_datagen, val_datagen)
     net.train(train_datagen, val_datagen)

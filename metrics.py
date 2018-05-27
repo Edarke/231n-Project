@@ -103,3 +103,11 @@ def category_dice_score(category):
         union = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth
         return intersection / union
     return hard_dice
+
+
+wt_dice = category_dice_score(1)
+wt_dice.__name__ = 'wt_dice'
+tc_dice = category_dice_score(2)
+tc_dice.__name__ = 'tc_dice'
+et_dice = category_dice_score(3)
+et_dice.__name__ = 'et_dice'
