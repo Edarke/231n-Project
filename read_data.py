@@ -179,7 +179,7 @@ class BRATSReader(AbstractReader):
         data = self.get_case(self.get_case_ids()[0][0])
         return data['labels'].shape
 
-    def get_case_ids(self, val_p=0.15, test_p=0.15):
+    def get_case_ids(self, val_p=0.15, test_p=0.75):
         random.seed(101)
         all_files = sorted(list(self.files.keys()))
 
