@@ -6,21 +6,15 @@ from keras.callbacks import *
 from keras.layers import *
 from keras.models import Model
 from keras.optimizers import *
-from keras import backend as K
 import config as configuration
 import metrics
 from keras_slice_generator import SliceGenerator
 from read_data import BRATSReader
-import keras.metrics
 from predict_callback import PredictCallback
-import keras.losses as losses
 from tkinter import *
 import augmentation
 import eval
 
-
-# FIXME: bug in Keras makes batchnorm fail with float16, but float16 can be a lot faster if there's a fix.
-K.set_floatx('float32')
 
 
 class myUnet(object):
@@ -29,8 +23,6 @@ class myUnet(object):
         self.img_rows = 224
         self.img_cols = 224
         self.model = self.__get_unet()
-
-
 
     def __inception_pool(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
                      init='he_uniform'):
