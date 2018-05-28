@@ -4,6 +4,11 @@ from PIL import Image
 from tqdm import tqdm
 
 from read_data import ATLASReader
+import numpy as np
+
+import pydensecrf.densecrf as dcrf
+from pydensecrf.utils import compute_unary, create_pairwise_bilateral, \
+    create_pairwise_gaussian, softmax_to_unary, unary_from_softmax
 
 _true_color = np.array([[[255, 0, 0, 75]]])
 _prediction_color = np.array([[[0, 255, 0, 75]]])
@@ -38,11 +43,14 @@ pred_to_color = {
 def get_prediction_color(id):
     return np.array(pred_to_color[id])
 
+
 # def get_truthy_color(id):
 #     return np.array(truth_to_color[id])
 
 
 colorize_prediction = np.vectorize(get_prediction_color, signature='()->(n)')
+
+
 # colorize_labels = np.vectorize(get_truthy_color, signature='()->(n)')
 
 
@@ -54,6 +62,7 @@ def visualize(original, prediction, labels):
     :return: An RGB PIL image that shows the overlap of our segmentation and the ground truth, and class probabilities
     """
     # prediction = np.round(np.clip(prediction, 0, 3))
+    prediction = crf(original, prediction)
     prediction = np.cumsum(prediction, axis=-1) > .5
     prediction = np.argmax(prediction, axis=-1)
     # prediction = prediction.reshape([224, 224]).astype(np.int32)
@@ -87,8 +96,56 @@ def visualize(original, prediction, labels):
     return joint_img
 
 
-def crf(input, probs):
-    return probs
+def crf(inputs_all, predictions_all):
+    for i in range(inputs_all.shape[0]):
+        predictions = predictions_all[i]
+        inputs = inputs_all[i]
+
+        # Based on http://warmspringwinds.github.io/tensorflow/tf-slim/2016/12/18/image-segmentation-with-tensorflow-using-cnns-and-conditional-random-fields/
+
+        # Inputs is (H, W, C)
+        # Predictions is (H, W, K)
+
+        # The input should be the negative of the logarithm of probability values
+        # Look up the definition of the softmax_to_unary for more information
+        predictions = predictions.transpose([2, 0, 1])
+        unary = unary_from_softmax(predictions)
+        unary = np.ascontiguousarray(unary)
+
+        d = dcrf.DenseCRF2D(inputs.shape[0], inputs.shape[1], 4)
+
+        d.setUnaryEnergy(unary.reshape([4, -1]))
+
+        # This potential penalizes small pieces of segmentation that are
+        # spatially isolated -- enforces more spatially consistent segmentations
+        #   feats = create_pairwise_gaussian(sdims=(10, 10), shape=inputs.shape[:2])
+
+        #   d.addPairwiseEnergy(feats, compat=2,
+        #                       kernel=dcrf.DIAG_KERNEL,
+        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        #   # This creates the channel-dependent features --
+        #   # because the segmentation that we get from CNN are too coarse
+        #   # and we can use local channel features to refine them
+        #   # Not sure how applicable this is to MRIs; usually is color-dependent features
+        #   # Where the variation in color is more significant than the variation in the modalities
+        #   feats = create_pairwise_bilateral(sdims=(10, 10), schan=(0.01, 0.01, 0.01, 0.01),
+        #                                     img=inputs, chdim=2)
+
+        #   d.addPairwiseEnergy(feats, compat=10,
+        #                       kernel=dcrf.DIAG_KERNEL,
+        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        d.addPairwiseGaussian(sxy=1, compat=4)
+
+        Q = d.inference(5)  # Number of inference steps
+
+        Q = np.array(Q)
+
+        res = Q.reshape(predictions.shape)
+        res = res.transpose([1, 2, 0])
+        predictions_all[i] = res
+    return predictions_all
 
 
 def np_dice_score(y_true, y_pred, category):
@@ -108,25 +165,28 @@ def np_dice_score(y_true, y_pred, category):
 
     intersection = 2 * np.sum(np.multiply(y_true, y_pred), axis=1) + smooth
     union = np.sum(y_true, axis=1) + np.sum(y_pred, axis=1) + smooth
-    return np.sum(intersection / union, axis=0)
+    return [np.sum(intersection, 0), np.sum(union, 0)]
 
 
 def evaluate(model, generator):
-    scores = np.array([0., 0., 0.])
-    crf_scores = np.array([0., 0., 0.])
+    scores = np.zeros((3, 2))
+    crf_scores = np.zeros_like(scores)
 
     total = 0
     print('Evaluating Model')
     for i, (input, label) in tqdm(enumerate(generator), total=len(generator), ncols=60):
         if label.shape[0] == 0:
             break
-
-        probs = model.predict_on_batch(input)
-        scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
-
-        probs = crf(input, probs)
         total += label.shape[0]
+        probs = model.predict_on_batch(input)
+
+        scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+        probs = crf(input, probs)
         crf_scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+
+    scores = scores[:, 0] / scores[1, :]
+    crf_scores = crf_scores[:, 0] / crf_scores[:, 1]
+
     return scores / total, crf_scores / total
 
 

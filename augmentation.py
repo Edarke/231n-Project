@@ -5,7 +5,7 @@ from scipy.ndimage.interpolation import map_coordinates, rotate, zoom
 from scipy.ndimage.filters import gaussian_filter
 from numpy import random
 from read_data import BRATSReader
-
+from keras.preprocessing.image import ImageDataGenerator
 
 def next_bool(p):
     return random.random() < p
@@ -73,6 +73,7 @@ def train_augmentation(sample, label):
     # sample *= brighness_factor
     # sample *= np.random.rand(*sample.shape[0:-1], 1) * .1
     sample = sample.astype(np.float32)
+
     # flipping
     if next_bool(.5):
         sample = np.flip(sample, haxis)
@@ -101,6 +102,43 @@ def train_augmentation(sample, label):
     sample, label = elastic_transform(sample, label)
 
     return sample, label
+
+
+
+    # alternate  method for data augmentation:
+    # keras inbuilt data generator for sample of shape (h, w, 4)  and label of shape (h, w)
+    # -- has zoom and shear, but it didn't seem to improve dice scores. 
+    datagen = ImageDataGenerator(
+        rotation_range=40,
+        # width_shift_range=0.2,
+        # height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest')
+
+    rand_num = random.randint(0, 10000) #generate random seed
+
+    _,_,modalities =sample.shape
+
+    X = np.empty(sample.shape)
+    y = np.empty(sample.shape[:-1], dtype=np.int8)
+
+
+    for j in range(0,modalities):
+        sl = np.expand_dims(sample[:,:,j] , axis=0) #for imagegenerator, we need the first dim as batch size #(1, 224,224)
+        sl = np.stack([sl,sl,sl], axis=-1) #like rgb           #(1, 224,224,3)
+        for aug_data in datagen.flow(sl,y= None, batch_size=1, seed=rand_num):
+            X[:,:,j] = np.squeeze(aug_data)[:,:,1] # aug_data is (1, 224,224,3)
+            break
+
+    lab = np.expand_dims(label, axis=0) # (1, 224,224)
+    lab = np.stack([lab,lab,lab], axis=-1)  # (1, 224,224,3)
+    for aug_lab in datagen.flow(lab,y= None, batch_size=1, seed=rand_num):
+            y[:,:] = np.squeeze(aug_lab)[:,:,1] # aug_lab is (1, 224,224,3)
+            break
+    return X, y
+
 
 
 def test_augmentation(sample, label):
