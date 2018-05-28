@@ -3,17 +3,18 @@ import numpy as np
 import itertools
 from tqdm import tqdm
 from augmentation import preprocess
-
+import random
 
 class SliceGenerator(keras.utils.Sequence):
 
     'Generates data for Keras'
-    def __init__(self, reader, num_slices, list_ids, dim, config, augmentor):
+    def __init__(self, reader, num_slices, list_ids, dim, config, augmentor, use_all_cross_sections):
         'Initialization'
         self.augmentor = augmentor
         self.reader = reader
         self.list_ids = list(itertools.product(list_ids, range(num_slices)))
         self.list_ids = sorted(self.list_ids)
+        self.use_all_cross_sections = use_all_cross_sections
 
         batch, height, width, channels = dim
         self.dim = (height, width, channels)
@@ -73,8 +74,30 @@ class SliceGenerator(keras.utils.Sequence):
             y = np.empty(shape[:-1], dtype=np.int8)
             for i, (case_index, slice_index) in enumerate(list_ids_temp):
                 data, label = self.cases[case_index]
-                slice = data[slice_index]
-                label = label[slice_index]
+
+                if(self.use_all_cross_sections):
+                    rand_num =random.random()
+                    if (rand_num <0.33):
+                        slice = data[slice_index]
+                        label = label[slice_index]
+                    elif (rand_num <0.66):
+                        data = np.transpose(data, axes=[1, 0, 2,3])
+                        label = np.transpose(label, axes=[1, 0, 2])
+
+                        slice = data[slice_index+34]
+                        label = label[slice_index+34]
+                        slice, label = preprocess(slice, label)
+                    else:
+                        data = np.transpose(data, axes=[2, 0, 1,3])
+                        label = np.transpose(label, axes=[2, 0, 1])
+
+                        slice = data[slice_index+34]
+                        label = label[slice_index+34]
+                        slice, label = preprocess(slice, label)
+                else:
+                    slice = data[slice_index]
+                    label = label[slice_index]
+
                 X[i], y[i] = self.augmentor(slice, label)
             return X, np.expand_dims(y, -1)
         # print('Generating data for indices', list_IDs_temp)
@@ -102,3 +125,4 @@ class SliceGenerator(keras.utils.Sequence):
         processed, targets = self.__data_generation(samples)
         originals = processed[:, :, :, 2]
         return originals, processed, targets
+
