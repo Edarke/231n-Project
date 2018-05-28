@@ -118,23 +118,17 @@ class SliceGenerator3D(keras.utils.Sequence):
         self.n_channels = channels
         self.on_epoch_end()
 
-        self.cases = []
+        self.cases = {}
         self.use_ram = config.use_ram
         if self.use_ram:
-            for index in list_ids:
+            for index in tqdm(list_ids, total=len(list_ids), ncols=60):
                 case = reader.get_case(index)
                 data = np.stack([self.normalize(case['flair']), self.normalize(case['t1']), self.normalize(case['t1ce']), self.normalize(case['t2'])], axis=-1)
                 labels = case['labels']
 
-                data = np.transpose(data, axes=[2, 0, 1, 3])
-                labels = np.expand_dims(labels, 0)
-
-                data, labels = preprocess(data, labels, config)
-                labels = np.transpose(np.squeeze(labels, 0), [2, 0, 1])
-
                 data = data.astype(np.float16)
                 labels = labels.astype(np.uint8)
-                self.cases.append((data, labels))
+                self.cases[index] = (data, labels)
 
     def normalize(self, x):
         mask = x[x > 0]
@@ -163,14 +157,14 @@ class SliceGenerator3D(keras.utils.Sequence):
         y = np.empty(shape[:-1], dtype=np.int8)
 
         if self.use_ram:
-            shape = (len(list_ids_temp), 224, 224, self.num_slices, 4)
-            X = np.empty(shape)
-            y = np.empty(shape[:-1], dtype=np.int8)
-            for i, (case_index, slice_index) in enumerate(list_ids_temp):
-                volume, label = self.cases[case_index]
-                X[i], y[i] = volume, label
+#           X = np.empty(self.dim)
+#           y = np.empty(shape[:-1], dtype=np.int8)
+            for i, patient_id in enumerate(list_ids_temp):
+                volume, label = self.cases[patient_id] # Volume is (224, 224, 155, 4), label is (224, 224, 155, 1)
+                X[i] = volume
+                y[i] = label
 #               X[i], y[i] = self.augmentor(slice, label)
-            return X, np.expand_dims(y, -1)
+            return preprocess3d(X, np.expand_dims(y, -1))
         # print('Generating data for indices', list_IDs_temp)
         # Generate data
         for i, patient_id in enumerate(list_ids_temp):
@@ -187,7 +181,7 @@ class SliceGenerator3D(keras.utils.Sequence):
             X[i], y[i] = volume, dic['labels']
 
         y = np.expand_dims(y, axis=-1)
-        return preprocess3d(X, y, self.config)
+        return preprocess3d(X, y)
 
     def get_sample_cases(self, num_samples=10):
         samples = self.list_ids[0:num_samples]

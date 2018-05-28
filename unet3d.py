@@ -104,7 +104,7 @@ class UNet3D(object):
         logger = CSVLogger(self.config.results_path + '/results.csv')
         tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,  write_graph=True, write_images=True)
         earlystopping = EarlyStopping(monitor='val_loss', patience=50)
-        callbacks = [TerminateOnNaN(), earlystopping, model_checkpoint, predict_train_callback, predict_val_callback, logger, tensorboard]
+        callbacks = [TerminateOnNaN(), earlystopping, model_checkpoint, logger, tensorboard]
         model.fit_generator(generator=train_gen, steps_per_epoch=len(train_gen), validation_data=val_gen, validation_steps=len(val_gen), epochs=9000, verbose=1, callbacks=callbacks)
 
     def save_img(self):

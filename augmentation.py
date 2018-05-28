@@ -187,7 +187,7 @@ def preprocess(data, labels):
     labels = np.pad(labels, pad_dims, mode='constant', constant_values=0)
     return data, labels
 
-def preprocess3d(data, labels, config):
+def preprocess3d(data, labels):
     """
     :param data: (batch, height, width, depth, channels)
     :param labels:  (batch, height, width, depth)
