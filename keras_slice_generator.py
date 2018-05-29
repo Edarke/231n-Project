@@ -92,14 +92,28 @@ class SliceGenerator(keras.utils.Sequence):
 
                         slice = data[slice_index + 34]
                         label = label[slice_index + 34]
+
+                        slice = np.expand_dims(slice, 0) #add axis for batch_num
+                        label = np.expand_dims(label, 0) #add axis for batch_num
+                        label = np.expand_dims(label, -1) #add axis for depth
+
                         slice, label = preprocess(slice, label)
+                        slice = slice[1,:,:,:]
+                        label = label[1,:,:,1]
                     else:
                         data = np.transpose(data, axes=[2, 0, 1, 3])
                         label = np.transpose(label, axes=[2, 0, 1])
 
                         slice = data[slice_index + 34]
                         label = label[slice_index + 34]
+
+                        slice = np.expand_dims(slice, 0) #add axis for batch_num
+                        label = np.expand_dims(label, 0) #add axis for batch_num
+                        label = np.expand_dims(label, -1) #add axis for depth
+
                         slice, label = preprocess(slice, label)
+                        slice = slice[1,:,:,:]
+                        label = label[1,:,:,1]
                 else:
                     slice = data[slice_index]
                     label = label[slice_index]
@@ -131,3 +145,4 @@ class SliceGenerator(keras.utils.Sequence):
         processed, targets = self.__data_generation(samples)
         originals = processed[:, :, :, 2]
         return originals, processed, targets
+
