@@ -98,8 +98,8 @@ class SliceGenerator(keras.utils.Sequence):
                         label = np.expand_dims(label, -1) #add axis for depth
 
                         slice, label = preprocess(slice, label)
-                        slice = slice[1,:,:,:]
-                        label = label[1,:,:,1]
+                        slice = slice[0,:,:,:]
+                        label = label[0,:,:,0]
                     else:
                         data = np.transpose(data, axes=[2, 0, 1, 3])
                         label = np.transpose(label, axes=[2, 0, 1])
@@ -112,8 +112,8 @@ class SliceGenerator(keras.utils.Sequence):
                         label = np.expand_dims(label, -1) #add axis for depth
 
                         slice, label = preprocess(slice, label)
-                        slice = slice[1,:,:,:]
-                        label = label[1,:,:,1]
+                        slice = slice[0,:,:,:]
+                        label = label[0,:,:,0]
                 else:
                     slice = data[slice_index]
                     label = label[slice_index]
