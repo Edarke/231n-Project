@@ -2,12 +2,9 @@ import keras
 import numpy as np
 import itertools
 from tqdm import tqdm
-<<<<<<< HEAD
 from augmentation import preprocess, preprocess3d
-=======
 from augmentation import preprocess
 import random
->>>>>>> master
 
 
 class SliceGenerator(keras.utils.Sequence):
