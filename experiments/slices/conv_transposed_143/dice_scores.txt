@@ -1,0 +1,7 @@
+100%|█████████████████████| 201/201 [36:09<00:00, 10.79s/it]
+Training Dice Scores (No CRF)  WT:0.898475  TC:0.864530  ET:0.732825
+Training Dice Scores (With CRF)  WT:0.027790  TC:0.847877  ET:0.726711
+Evaluating Model
+100%|███████████████████████| 42/42 [07:30<00:00, 10.73s/it]
+Validation Dice Scores (No CRF)  WT:0.887134  TC:0.821582  ET:0.738086
+Validation Dice Scores (With CRF)  WT:0.025947  TC:0.807470  ET:0.72729

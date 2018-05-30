@@ -169,6 +169,8 @@ def preprocess(data, labels):
         data = data[:, slice_top:-slice_bottom, :, :]
         labels = labels[:, slice_top:-slice_bottom, :, :]
         pad_dims.append((0, 0))
+    else :
+        pad_dims.append((0, 0))
 
     if w_diff > 0:
         pad_left = w_diff // 2
@@ -179,6 +181,8 @@ def preprocess(data, labels):
         slice_right = -1 * (w_diff // 2 - w_diff % 2)
         data = data[:, :, slice_left:-slice_right, :]
         labels = labels[:, :, slice_left:-slice_right, :]
+        pad_dims.append((0, 0))
+    else :
         pad_dims.append((0, 0))
 
     pad_dims.append((0, 0))
@@ -275,3 +279,4 @@ if __name__ == '__main__':
     scipy.misc.toimage(slice, mode='L').show(title='data')
     scipy.misc.toimage(label * 255, mode='L').show(title='augmented label')
     scipy.misc.toimage(orig * 255, mode='L').show(title='original label')
+
