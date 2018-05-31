@@ -85,17 +85,11 @@ class SliceGenerator(keras.utils.Sequence):
                     slice = data[slice_index]
                     label = label[slice_index]
                 elif rand_num < 0.66:
-                    data = np.transpose(data, axes=[1, 0, 2, 3])
-                    label = np.transpose(label, axes=[1, 0, 2])
-
-                    slice = data[slice_index + 34]
-                    label = label[slice_index + 34]
+                    slice = data[:, slice_index + 34, :, :]
+                    label = label[:, slice_index + 34, :]
                 else:
-                    data = np.transpose(data, axes=[2, 0, 1, 3])
-                    label = np.transpose(label, axes=[2, 0, 1])
-
-                    slice = data[slice_index + 34]
-                    label = label[slice_index + 34]
+                    slice = data[:, :, slice_index + 34, :]
+                    label = label[:, :, slice_index + 34]
 
                 X[i], y[i] = self.augmentor(slice, label)
             return X, np.expand_dims(y, -1)
