@@ -71,11 +71,11 @@ class SliceGenerator(keras.utils.Sequence):
     def __data_generation(self, list_ids_temp):
         'Generates data containing batch_size samples'  # X : (n_samples, *dim, n_channels)
         # Initialization
-        shape = (len(list_ids_temp), *self.dim)
-        X = np.empty(shape)
-        y = np.empty(shape[:-1], dtype=np.int8)
-
         if self.use_ram:
+            shape = (len(list_ids_temp), 224, 224, 4)
+            X = np.empty(shape)
+            y = np.empty(shape[:-1], dtype=np.int8)
+
             rand_num = random.random() if self.use_all_cross_sections else 0
 
             for i, (case_index, slice_index) in enumerate(list_ids_temp):
@@ -99,6 +99,10 @@ class SliceGenerator(keras.utils.Sequence):
 
                 X[i], y[i] = self.augmentor(slice, label)
             return X, np.expand_dims(y, -1)
+
+        shape = (len(list_ids_temp), *self.dim)
+        X = np.empty(shape)
+        y = np.empty(shape[:-1], dtype=np.int8)
         # print('Generating data for indices', list_IDs_temp)
         # Generate data
         for i, (patient_id, slice_index) in enumerate(list_ids_temp):
