@@ -157,7 +157,7 @@ def preprocess(data, labels):
     # Crop or pad to 224x224x224
     h_diff = 224 - H
     w_diff = 224 - W
-    d_diff = 224 - D
+    d_diff = 224 - N
 
     pad_dims = []
 
