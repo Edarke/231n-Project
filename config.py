@@ -8,7 +8,7 @@ import tensorflow as tf
 
 class Config(object):
     def __init__(self):
-        self.experiment_name = 'Initial Test'
+        self.experiment_name = 'Initial_Test'
         self.results_path = self.__create_experiment(self.experiment_name)
         self.dtype = tf.float32
         tf.keras.backend.set_floatx('float32')
@@ -19,7 +19,7 @@ class Config(object):
         self.learning_rate = .001
         self.epochs = 100
         self.patience = 10
-        self.slice_batch_size = 16
+        self.slice_batch_size = 32
         self.freeze_resnet = False
         self.atlas_positive_freq = .0016779066593665076
         self.atlas_pos_weight = 50.
