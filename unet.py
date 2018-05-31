@@ -35,8 +35,16 @@ class myUnet(object):
             print('Loading weights from ', self.weights_file)
             self.model.load_weights(self.weights_file)
 
-    def atrous_spatial_pyramid_pooling(self, prefix):
+    def atrous_spatial_pyramid_pooling(self, input, prefix, activation, init, reg):
         prefix = prefix + '_aspp_'
+
+        conv1 = Conv2D(filters=1, kernel_size=3, dilation_rate=1, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(input)
+        conv2 = Conv2D(filters=1, kernel_size=3, dilation_rate=2, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(input)
+        conv4 = Conv2D(filters=1, kernel_size=3, dilation_rate=4, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(input)
+        cat = concatenate([conv1, conv2, conv4])
+        pool = Conv2D(filters=1, kernel_size=3, strides=2, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(cat)
+        return pool
+
 
     def __inception_pool(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
                      init='he_uniform'):
@@ -69,47 +77,52 @@ class myUnet(object):
 
         return bottle_neck, pooled
 
-    def __pool_layer(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
+    def __pool_layer(self, input, filters, block_num, drop_prob=.3, activation='linear', padding='same',
                      init='he_uniform'):
         block_num = str(block_num)
         prefix = 'conv' + block_num + '_'
         reg = tf.keras.regularizers.l2(.0)
 
-        conv1 = Conv2D(filters, 3, activation=activation, padding=padding, kernel_initializer=init,
+        conv1 = Conv2D(filters, 3, dilation_rate=1, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '1')(input)
+        conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
-        conv1 = Conv2D(filters, 3, activation=activation, padding=padding, kernel_initializer=init,
+        conv1 = Conv2D(filters, 3, dilation_rate=1, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '2')(conv1)
+        conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
 
         # TODO: Try AveragePooling, or strided convolutions
         pool1 = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(conv1)
+        # pool1 = self.atrous_spatial_pyramid_pooling(conv1, prefix, activation, init, reg)
         if drop_prob is not None:
             pool1 = Dropout(drop_prob, name='dropdown' + block_num)(pool1)
         return conv1, pool1
 
-    def __unpool_block(self, pooled, prepooled, block_num, drop_prob=.2, activation='relu', padding='same',
+    def __unpool_block(self, pooled, prepooled, block_num, drop_prob=.2, activation='linear', padding='same',
                        init='he_uniform'):
         filters = prepooled._keras_shape[-1]
         block_num = str(block_num)
         prefix = 'upconv' + block_num + '_'
         reg = tf.keras.regularizers.l2(.0)
 
-        # conv1 = Deconv2D(filters=filters, kernel_size=(3, 3), strides=2, padding=padding, activation=activation, kernel_initializer=init, kernel_regularizer=reg, name=prefix + '1')(pooled)
         # up1 = UpSampling2D(size=(2, 2), name='upsample' + block_num)(pooled)
         #conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
         #               kernel_regularizer=reg, name=prefix + '1')(up1)
         conv1 = Conv2DTranspose(filters, kernel_size=(4, 4), strides=2, padding=padding, activation=activation,
                                 kernel_initializer=init, kernel_regularizer=reg, name=prefix + '1')(pooled)
+        conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
 
         merged = concatenate([prepooled, conv1], axis=3, name='merge' + block_num)
         conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '2')(merged)
+        conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
 
         conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '3')(conv1)
+        conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
 
         if drop_prob is not None:
@@ -141,9 +154,7 @@ class myUnet(object):
 
         model = Model(inputs=inputs, outputs=masked_predictions)
         model.compile(optimizer=Adam(lr=1e-3), loss=metrics.keras_dice_coef_loss(),
-                      metrics=[metrics.category_dice_score(1),
-                               metrics.category_dice_score(2),
-                               metrics.category_dice_score(3)])
+                      metrics=[metrics.wt_dice, metrics.tc_dice, metrics.et_dice])
 
         return model
 
