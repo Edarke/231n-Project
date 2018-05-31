@@ -280,4 +280,3 @@ def get_single_example(use_hgg=True, use_lgg=True):
     case = breader.get_case(train[0])
     data = np.stack([case['flair'], case['t1'], case['t1ce'], case['t2']], axis=-1)
     return data, case['labels']
-    

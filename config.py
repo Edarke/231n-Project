@@ -20,6 +20,7 @@ class Config(object):
         self.epochs = 100
         self.patience = 10
         self.slice_batch_size = 32
+        self.volume_batch_size = 1
         self.freeze_resnet = False
         self.atlas_positive_freq = .0016779066593665076
         self.atlas_pos_weight = 50.

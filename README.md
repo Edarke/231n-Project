@@ -5,6 +5,7 @@ TODO:
 - 3D net  (Jamil)
 - data augmentation (rotation) (Evan, Stephanie)
 - slices from different planes  (Stephanie)
+- Multi-View Fusion (predict on all three axis and average softmax outputs)
 
 - CRF (Jamil for CRF, Evan for training loop)
 - Additional public data (Jamil)
