@@ -31,16 +31,17 @@ class SliceGenerator(keras.utils.Sequence):
 
             for index, id in tqdm(enumerate(list_ids), total=len(list_ids), ncols=60):
                 case = reader.get_case(id)
+
                 data = np.stack(
                     [self.normalize(case['flair']), self.normalize(case['t1']), self.normalize(case['t1ce']),
                      self.normalize(case['t2'])], axis=-1)
                 labels = case['labels']
 
                 data = np.transpose(data, axes=[2, 0, 1, 3])
-                labels = np.expand_dims(labels, 0)
+                labels = np.expand_dims(labels, -1)
 
                 data, labels = preprocess(data, labels)
-                labels = np.transpose(np.squeeze(labels, 0), [2, 0, 1])
+                labels = np.transpose(np.squeeze(labels, -1), [2, 0, 1])
 
                 data = data.astype(np.float16)
                 labels = labels.astype(np.uint8)
@@ -76,48 +77,26 @@ class SliceGenerator(keras.utils.Sequence):
         y = np.empty(shape[:-1], dtype=np.int8)
 
         if self.use_ram:
-            shape = (len(list_ids_temp), 224, 224, 4)
-            X = np.empty(shape)
-            y = np.empty(shape[:-1], dtype=np.int8)
+            rand_num = random.random() if self.use_all_cross_sections else 0
+
             for i, (case_index, slice_index) in enumerate(list_ids_temp):
                 data, label = self.cases[case_index]
 
-                if (self.use_all_cross_sections):
-                    rand_num = random.random()
-                    if (rand_num < 0.33):
-                        slice = data[slice_index]
-                        label = label[slice_index]
-                    elif (rand_num < 0.66):
-                        data = np.transpose(data, axes=[1, 0, 2, 3])
-                        label = np.transpose(label, axes=[1, 0, 2])
-
-                        slice = data[slice_index + 34]
-                        label = label[slice_index + 34]
-
-                        slice = np.expand_dims(slice, 0) #add axis for batch_num
-                        label = np.expand_dims(label, 0) #add axis for batch_num
-                        label = np.expand_dims(label, -1) #add axis for depth
-
-                        slice, label = preprocess(slice, label)
-                        slice = slice[0,:,:,:]
-                        label = label[0,:,:,0]
-                    else:
-                        data = np.transpose(data, axes=[2, 0, 1, 3])
-                        label = np.transpose(label, axes=[2, 0, 1])
-
-                        slice = data[slice_index + 34]
-                        label = label[slice_index + 34]
-
-                        slice = np.expand_dims(slice, 0) #add axis for batch_num
-                        label = np.expand_dims(label, 0) #add axis for batch_num
-                        label = np.expand_dims(label, -1) #add axis for depth
-
-                        slice, label = preprocess(slice, label)
-                        slice = slice[0,:,:,:]
-                        label = label[0,:,:,0]
-                else:
+                if rand_num < 0.33:
                     slice = data[slice_index]
                     label = label[slice_index]
+                elif rand_num < 0.66:
+                    data = np.transpose(data, axes=[1, 0, 2, 3])
+                    label = np.transpose(label, axes=[1, 0, 2])
+
+                    slice = data[slice_index + 34]
+                    label = label[slice_index + 34]
+                else:
+                    data = np.transpose(data, axes=[2, 0, 1, 3])
+                    label = np.transpose(label, axes=[2, 0, 1])
+
+                    slice = data[slice_index + 34]
+                    label = label[slice_index + 34]
 
                 X[i], y[i] = self.augmentor(slice, label)
             return X, np.expand_dims(y, -1)

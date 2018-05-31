@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
     height, width, slices = brats.get_dims()
     train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4),
-                                   config=config, augmentor=augmentation.train_augmentation, use_all_cross_sections=False)
+                                   config=config, augmentor=augmentation.train_augmentation, use_all_cross_sections=True)
     val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config,
                                  augmentor=augmentation.test_augmentation, use_all_cross_sections=False)
 
