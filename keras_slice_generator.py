@@ -39,7 +39,7 @@ class SliceGenerator(keras.utils.Sequence):
                 data = np.transpose(data, axes=[2, 0, 1, 3])
                 labels = np.transpose(np.expand_dims(labels, -1), [2, 0, 1, 3])
 
-                data, labels = preprocess(data, labels, pad_batch=True)
+                data, labels = preprocess(data, labels, pad_batch=self.use_all_cross_sections)
                 labels = np.squeeze(labels, -1)
 
                 data = data.astype(np.float16)
