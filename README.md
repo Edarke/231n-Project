@@ -1,5 +1,10 @@
 **CS231n Project**
 
+Dependencies
+```bash
+sudo apt-get install -y graphviz libgraphviz-dev
+```
+
 
 TODO:  
 - 3D net  (Jamil)

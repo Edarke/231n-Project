@@ -168,13 +168,19 @@ def np_dice_score(y_true, y_pred, category):
     return np.sum(intersection / union, 0)
 
 
-def evaluate(model, generator):
+def evaluate(model, generator, multiview_fusion):
     scores = np.zeros(3)
     crf_scores = np.zeros_like(scores)
 
     print('Evaluating Model')
     for i, (input, label) in tqdm(enumerate(generator), total=len(generator), ncols=60):
         probs = model.predict_on_batch(input)
+        if multiview_fusion:
+            view = model.predict_on_batch(np.transpose(input, [1, 0, 2, 3]))
+            probs += np.transpose(view, [0, 1, 2, 3])
+            view = model.predict_on_batch(np.transpose(input, [2, 1, 0, 3]))
+            probs += np.transpose(view, [0, 1, 2, 3])
+
         scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
         probs = crf(input, probs)
         crf_scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
@@ -191,9 +197,10 @@ if __name__ == '__main__':
     from unet import myUnet
     from read_data import BRATSReader
     from evaluation_generator import EvalGenerator
+    from keras.models import load_model
 
     config = configuration.Config()
-    net = myUnet(config)
+    net = load_model('unet.hdf5')
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
@@ -203,4 +210,5 @@ if __name__ == '__main__':
     train_datagen = EvalGenerator(brats, train_ids, dim=(height, width, 4))
     val_datagen = EvalGenerator(brats, val_ids, dim=(height, width, 4))
 
-    net.evalute_train_and_val_set(train_datagen, val_datagen)
+    net.evalute_train_and_val_set(train_datagen, val_datagen, True)
+    net.evalute_train_and_val_set(train_datagen, val_datagen, False)

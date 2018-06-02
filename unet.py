@@ -17,7 +17,7 @@ import keras.losses as losses
 from tkinter import *
 import augmentation
 import eval
-
+from keras.utils.vis_utils import  plot_model
 
 # FIXME: bug in Keras makes batchnorm fail with float16, but float16 can be a lot faster if there's a fix.
 K.set_floatx('float32')
@@ -36,44 +36,60 @@ class myUnet(object):
             self.model.load_weights(self.weights_file)
 
     def atrous_spatial_pyramid_pooling(self, input, prefix, activation, init, reg):
-        prefix = prefix + '_aspp_'
-
-        conv1 = Conv2D(filters=1, kernel_size=3, dilation_rate=1, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(input)
-        conv2 = Conv2D(filters=1, kernel_size=3, dilation_rate=2, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(input)
-        conv4 = Conv2D(filters=1, kernel_size=3, dilation_rate=4, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(input)
+        conv1 = Conv2D(filters=1, kernel_size=3, dilation_rate=1, padding='same', activation=activation,
+                       kernel_initializer=init, kernel_regularizer=reg)(input)
+        conv2 = Conv2D(filters=1, kernel_size=3, dilation_rate=2, padding='same', activation=activation,
+                       kernel_initializer=init, kernel_regularizer=reg)(input)
+        conv4 = Conv2D(filters=1, kernel_size=3, dilation_rate=4, padding='same', activation=activation,
+                       kernel_initializer=init, kernel_regularizer=reg)(input)
         cat = concatenate([conv1, conv2, conv4])
-        pool = Conv2D(filters=1, kernel_size=3, strides=2, padding='same', activation=activation, kernel_initializer=init, kernel_regularizer=reg)(cat)
+        pool = Conv2D(filters=1, kernel_size=3, strides=2, padding='same', activation=activation,
+                      kernel_initializer=init, kernel_regularizer=reg)(cat)
         return pool
 
+    # Inception V3 Block https://towardsdatascience.com/neural-network-architectures-156e5bad51ba
+    def __inception_block(self, input, filters, prefix, reg, padding, init, activation='linear'):
+        ones = Conv2D(filters // 2, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1_1')(input)
+
+        threes = Conv2D(filters // 4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                        kernel_regularizer=reg, name=prefix + '1x1_3')(input)
+        threes = LeakyReLU()(threes)
+        threes = BatchNormalization()(threes)
+        threes = Conv2D(filters // 2 + filters // 4, 3, activation=activation, padding=padding, kernel_initializer=init,
+                        kernel_regularizer=reg, name=prefix + '3x3_3')(threes)
+
+        fives = Conv2D(filters // 4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                       kernel_regularizer=reg, name=prefix + '1x1_5')(input)
+        fives = LeakyReLU()(fives)
+        fives = BatchNormalization()(fives)
+        fives = Conv2D(filters // 4, 3, activation=activation, padding=padding, kernel_initializer=init,
+                       kernel_regularizer=reg, name=prefix + '3x3_5a')(fives)
+        fives = LeakyReLU()(fives)
+        fives = BatchNormalization()(fives)
+        fives = Conv2D(filters // 2, 3, activation=activation, padding=padding, kernel_initializer=init,
+                       kernel_regularizer=reg, name=prefix + '3x3_5b')(fives)
+
+        pool = AveragePooling2D(pool_size=(3, 3), strides=1, padding=padding, name=prefix + 'pool3x3')(input)
+        pool = Conv2D(filters // 4, 1, activation=activation, padding=padding, kernel_initializer=init,
+                      kernel_regularizer=reg, name=prefix + '1x1')(pool)
+
+        bottle_neck = concatenate([ones, threes, fives, pool], axis=3, name=prefix + '_bottleneck')
+        bottle_neck = LeakyReLU()(bottle_neck)
+        return bottle_neck
 
     def __inception_pool(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
-                     init='he_uniform'):
+                         init='he_uniform'):
         block_num = str(block_num)
-        prefix = 'conv' + block_num + '_'
         reg = tf.keras.regularizers.l2(.0)
         filters = input._keras_shape[-1]
 
-        ones = Conv2D(filters//2, 1, activation=activation, padding=padding, kernel_initializer=init,
-                       kernel_regularizer=reg, name=prefix + '1x1_1')(input)
-
-        threes = Conv2D(filters//4, 1, activation=activation, padding=padding, kernel_initializer=init,
-                      kernel_regularizer=reg, name=prefix + '1x1_3')(input)
-        threes = Conv2D(filters // 2 + filters // 4, 3, activation=activation, padding=padding, kernel_initializer=init,
-                      kernel_regularizer=reg, name=prefix + '3x3_3')(threes)
-
-        fives = Conv2D(filters//4, 1, activation=activation, padding=padding, kernel_initializer=init,
-                      kernel_regularizer=reg, name=prefix + '1x1_5')(input)
-        fives = Conv2D(filters // 4 + filters // 8, 5, activation=activation, padding=padding, kernel_initializer=init,
-                        kernel_regularizer=reg, name=prefix + '3x3_5p1')(fives)
-
-        pool = MaxPool2D(pool_size=(3, 3), strides=1, padding=padding, name=block_num + 'pool3x3')(input)
-        pool = Conv2D(filters//4, 1, activation=activation, padding=padding, kernel_initializer=init,
-                      kernel_regularizer=reg, name=prefix + '1x1')(pool)
-        bottle_neck = concatenate([ones, threes, fives, pool], axis=3, name=block_num + '_bottleneck')
+        bottle_neck = self.__inception_block(input, filters, 'inception_pool' + block_num + '_', reg, padding, init)
 
         pooled = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(bottle_neck)
+        pooled = BatchNormalization()(pooled)
         if drop_prob is not None:
-            pooled = Dropout(drop_prob, name='dropdown' + block_num)(pooled)
+            pooled = Dropout(drop_prob)(pooled)
 
         return bottle_neck, pooled
 
@@ -86,15 +102,16 @@ class myUnet(object):
         conv1 = Conv2D(filters, 3, dilation_rate=1, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '1')(input)
         conv1 = LeakyReLU()(conv1)
+
         conv1 = BatchNormalization()(conv1)
         conv1 = Conv2D(filters, 3, dilation_rate=1, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '2')(conv1)
         conv1 = LeakyReLU()(conv1)
-        conv1 = BatchNormalization()(conv1)
 
         # TODO: Try AveragePooling, or strided convolutions
         pool1 = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(conv1)
-        # pool1 = self.atrous_spatial_pyramid_pooling(conv1, prefix, activation, init, reg)
+        pool1 = BatchNormalization()(pool1)
+
         if drop_prob is not None:
             pool1 = Dropout(drop_prob, name='dropdown' + block_num)(pool1)
         return conv1, pool1
@@ -106,34 +123,33 @@ class myUnet(object):
         prefix = 'upconv' + block_num + '_'
         reg = tf.keras.regularizers.l2(.0)
 
-        # up1 = UpSampling2D(size=(2, 2), name='upsample' + block_num)(pooled)
-        #conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
-        #               kernel_regularizer=reg, name=prefix + '1')(up1)
         conv1 = Conv2DTranspose(filters, kernel_size=(4, 4), strides=2, padding=padding, activation=activation,
                                 kernel_initializer=init, kernel_regularizer=reg, name=prefix + '1')(pooled)
         conv1 = LeakyReLU()(conv1)
-        conv1 = BatchNormalization()(conv1)
 
         merged = concatenate([prepooled, conv1], axis=3, name='merge' + block_num)
+        merged = BatchNormalization()(merged)
+
         conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '2')(merged)
         conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
-
         conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '3')(conv1)
         conv1 = LeakyReLU()(conv1)
         conv1 = BatchNormalization()(conv1)
 
         if drop_prob is not None:
-            conv1 = Dropout(drop_prob, name='dropup' + block_num)(conv1)
+            conv1 = Dropout(drop_prob)(conv1)
         return conv1
 
     def __get_unet(self):
         inputs = Input((self.img_rows, self.img_cols, 4))  # (b, 224, 224, 1)
         filters = 16  # 64
 
-        stem = inputs
+        stem = Conv2D(8, 3, padding='same', kernel_initializer='he_uniform')(inputs)
+        stem = LeakyReLU()(stem)
+        stem = BatchNormalization()(stem)
         conv224, p112 = self.__pool_layer(stem, filters=filters, block_num=1)  # (b, 112, 112, 64)
         conv112, p56 = self.__pool_layer(p112, filters=filters * 2, block_num=2)  # (b, 56, 56, 128)
         conv56, p28 = self.__pool_layer(p56, filters=filters * 4, block_num=3)  # (b, 28, 28, 256)
@@ -148,14 +164,15 @@ class myUnet(object):
         u224 = self.__unpool_block(pooled=u112, prepooled=conv224, block_num=4)
 
         predictions = Conv2D(filters=4, kernel_size=1, activation='softmax', name='predictions')(u224)
-        mask = Lambda(metrics.compute_mask)(inputs)
-        masked_predictions = Lambda(lambda mask_n_preds: mask_n_preds[0] * mask_n_preds[1])(
+        mask = Lambda(metrics.compute_mask, name='compute_mask')(inputs)
+        masked_predictions = Lambda(lambda mask_n_preds: mask_n_preds[0] * mask_n_preds[1], name='mask_background')(
             [mask, predictions])  # multiply([mask, predictions])
 
         model = Model(inputs=inputs, outputs=masked_predictions)
         model.compile(optimizer=Adam(lr=1e-3), loss=metrics.keras_dice_coef_loss(),
                       metrics=[metrics.wt_dice, metrics.tc_dice, metrics.et_dice])
-
+        model.summary()
+        plot_model(model, self.config.results_path + '/model.png', show_shapes=True, show_layer_names=True)
         return model
 
     def train(self, train_gen, val_gen):
@@ -174,20 +191,21 @@ class myUnet(object):
         callbacks = [TerminateOnNaN(), earlystopping, model_checkpoint, predict_train_callback, predict_val_callback,
                      logger, tensorboard]
         history = self.model.fit_generator(generator=train_gen,
-                                      steps_per_epoch=len(train_gen),
-                                      validation_data=val_gen,
-                                      validation_steps=len(val_gen),
-                                      epochs=9000,
-                                      verbose=1,
-                                      callbacks=callbacks)
+                                           steps_per_epoch=len(train_gen),
+                                           validation_data=val_gen,
+                                           validation_steps=len(val_gen),
+                                           epochs=9000,
+                                           verbose=1,
+                                           callbacks=callbacks)
         return history
 
-    def evalute_train_and_val_set(self, train_gen, val_gen):
+    def evalute_train_and_val_set(self, train_gen, val_gen, multiview_fusion):
         model = self.model  # Make sure unet.hdf5 is in the current directory
-        scores, scores_crf = eval.evaluate(model, train_gen)
+        scores, scores_crf = eval.evaluate(model, train_gen, multiview_fusion)
+        print('MultiView Fusion:', multiview_fusi)
         print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
         print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
-        scores, scores_crf = eval.evaluate(model, val_gen)
+        scores, scores_crf = eval.evaluate(model, val_gen, multiview_fusion)
         print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
         print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
 
@@ -202,7 +220,8 @@ if __name__ == '__main__':
 
     height, width, slices = brats.get_dims()
     train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4),
-                                   config=config, augmentor=augmentation.train_augmentation, use_all_cross_sections=False)
+                                   config=config, augmentor=augmentation.train_augmentation,
+                                   use_all_cross_sections=False)
     val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config,
                                  augmentor=augmentation.test_augmentation, use_all_cross_sections=False)
 
