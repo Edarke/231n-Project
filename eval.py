@@ -96,6 +96,33 @@ def visualize(original, prediction, labels):
     return joint_img
 
 
+def crf2(inputs_all, predictions_all):
+    print("Using 2D specialized functions")
+    for i in range(inputs_all.shape[0]):
+        n_labels = 4
+
+        labels = predictions_all[i]
+        inputs = inputs_all[i]
+
+        d = dcrf.DenseCRF2D(predictions.shape[1], predictions.shape[0], n_labels)
+
+        # get unary potentials (neg log probability)
+        U = unary_from_labels(labels, n_labels, zero_unsure=False)
+        d.setUnaryEnergy(U)
+
+        # This adds the color-independent term, features are the locations only.
+        d.addPairwiseGaussian(sxy=(3, 3), compat=3, kernel=dcrf.DIAG_KERNEL,
+                              normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        # This adds the color-dependent term, i.e. features are (x,y,r,g,b).
+        d.addPairwiseBilateral(sxy=(80, 80), srgb=(13, 13, 13), rgbim=img,
+                               compat=10,
+                               kernel=dcrf.DIAG_KERNEL,
+                               normalization=dcrf.NORMALIZE_SYMMETRIC)
+        predictions_all[i] = res
+    return predictions_all
+
+
 def crf(inputs_all, predictions_all):
     for i in range(inputs_all.shape[0]):
         predictions = predictions_all[i]
@@ -106,42 +133,20 @@ def crf(inputs_all, predictions_all):
         # Inputs is (H, W, C)
         # Predictions is (H, W, K)
 
-        # The input should be the negative of the logarithm of probability values
-        # Look up the definition of the softmax_to_unary for more information
         predictions = predictions.transpose([2, 0, 1])
         unary = unary_from_softmax(predictions)
         unary = np.ascontiguousarray(unary)
 
         d = dcrf.DenseCRF2D(inputs.shape[0], inputs.shape[1], 4)
-
         d.setUnaryEnergy(unary.reshape([4, -1]))
+        d.addPairwiseGaussian(sxy=3, compat=4)
+        pairwise_energy = create_pairwise_bilateral(sdims=(10, 10), schan=(0.01,), img=inputs, chdim=2)
+        d.addPairwiseEnergy(pairwise_energy, compat=10)
 
-        # This potential penalizes small pieces of segmentation that are
-        # spatially isolated -- enforces more spatially consistent segmentations
-        #   feats = create_pairwise_gaussian(sdims=(10, 10), shape=inputs.shape[:2])
-
-        #   d.addPairwiseEnergy(feats, compat=2,
-        #                       kernel=dcrf.DIAG_KERNEL,
-        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
-
-        #   # This creates the channel-dependent features --
-        #   # because the segmentation that we get from CNN are too coarse
-        #   # and we can use local channel features to refine them
-        #   # Not sure how applicable this is to MRIs; usually is color-dependent features
-        #   # Where the variation in color is more significant than the variation in the modalities
-        #   feats = create_pairwise_bilateral(sdims=(10, 10), schan=(0.01, 0.01, 0.01, 0.01),
-        #                                     img=inputs, chdim=2)
-
-        #   d.addPairwiseEnergy(feats, compat=10,
-        #                       kernel=dcrf.DIAG_KERNEL,
-        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
-
-        d.addPairwiseGaussian(sxy=1, compat=4)
-
+        # d.addPairwiseBilateral(sxy=80, srgb=13, rgbim=inputs, compat=10)
         Q = d.inference(5)  # Number of inference steps
 
         Q = np.array(Q)
-
         res = Q.reshape(predictions.shape)
         res = res.transpose([1, 2, 0])
         predictions_all[i] = res
@@ -200,7 +205,7 @@ if __name__ == '__main__':
     train_ids, val_ids, test_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = EvalGenerator(brats, train_ids, dim=(height, width, 4))
+    # train_datagen = EvalGenerator(brats, train_ids, dim=(height, width, 4))
     val_datagen = EvalGenerator(brats, val_ids, dim=(height, width, 4))
 
-    net.evalute_train_and_val_set(train_datagen, val_datagen)
+    net.evalute_train_and_val_set(val_datagen, val_datagen)
