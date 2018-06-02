@@ -140,7 +140,6 @@ def train_augmentation(sample, label):
     return X, y
 
 
-
 def test_augmentation(sample, label):
     return sample, label
 
@@ -159,7 +158,7 @@ def preprocess(data, labels, pad_batch=False):
     w_diff = 224 - W
     b_diff = 224 - N
 
-    if pad_batch:
+    if pad_batch:  # Pad the batch size if using all axes
         if b_diff > 0:
             pad_top = b_diff // 2
             pad_bottom = b_diff // 2 + b_diff % 2
@@ -185,7 +184,7 @@ def preprocess(data, labels, pad_batch=False):
         data = data[:, slice_top:-slice_bottom, :, :]
         labels = labels[:, slice_top:-slice_bottom, :, :]
         pad_dims.append((0, 0))
-    else :
+    else:
         pad_dims.append((0, 0))
 
     if w_diff > 0:
@@ -198,7 +197,7 @@ def preprocess(data, labels, pad_batch=False):
         data = data[:, :, slice_left:-slice_right, :]
         labels = labels[:, :, slice_left:-slice_right, :]
         pad_dims.append((0, 0))
-    else :
+    else:
         pad_dims.append((0, 0))
 
     pad_dims.append((0, 0))
@@ -219,7 +218,7 @@ def preprocess3d(data, labels):
     # Crop or pad to 224x224x224
     h_diff = 224 - H
     w_diff = 224 - W
-    d_diff = 128 - D
+    d_diff = 224 - D
 
     pad_dims = [(0, 0)]
     if h_diff > 0:
@@ -244,22 +243,23 @@ def preprocess3d(data, labels):
         labels = labels[:, :, slice_left:-slice_right, :, :]
         pad_dims.append((0, 0))
 
-    if d_diff > 0:
-        pad_up = d_diff // 2
-        pad_down = d_diff // 2 + d_diff % 2
-        pad_dims.append((pad_up, pad_down))
-    elif d_diff < 0:
-        d_diff *= -1
-        slice_up = d_diff // 2
-        slice_down =  (d_diff // 2 + d_diff % 2)
-        data = data[:, :, :, slice_up:-slice_down, :]
-        labels = labels[:, :, :, slice_up:-slice_down, :]
-        pad_dims.append((0, 0))
+    # if d_diff > 0:
+    #     pad_up = d_diff // 2
+    #     pad_down = d_diff // 2 + d_diff % 2
+    #     pad_dims.append((pad_up, pad_down))
+    # elif d_diff < 0:
+    #     d_diff *= -1
+    #     slice_up = d_diff // 2
+    #     slice_down = (d_diff // 2 + d_diff % 2)
+    #     data = data[..., slice_up:-slice_down]
+    #     labels = labels[..., slice_up:-slice_down]
+    #     pad_dims.append((0, 0))
 
     pad_dims.append((0, 0))
 
     data = np.pad(data, pad_dims, mode='constant', constant_values=0)
     labels = np.pad(labels, pad_dims, mode='constant', constant_values=0)
+    print('Padded!')
     return data, labels
 
 

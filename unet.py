@@ -17,13 +17,10 @@ import keras.losses as losses
 from tkinter import *
 import augmentation
 import eval
+from keras.utils.vis_utils import plot_model
 
 
-# FIXME: bug in Keras makes batchnorm fail with float16, but float16 can be a lot faster if there's a fix.
-K.set_floatx('float32')
-
-
-class myUnet(object):
+class Unet(object):
 
     def __init__(self, config):
         self.config = config
@@ -36,14 +33,10 @@ class myUnet(object):
             print('Loading weights from ', self.weights_file)
             self.model.load_weights(self.weights_file)
 
-    def atrous_spatial_pyramid_pooling(self, prefix):
-        prefix = prefix + '_aspp_'
-
-    def __inception_pool(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same',
-                     init='he_uniform'):
+    def __inception_pool(self, input, filters, block_num, drop_prob=.3, activation='relu', padding='same', init='he_uniform'):
         block_num = str(block_num)
         prefix = 'conv' + block_num + '_'
-        reg = tf.keras.regularizers.l2(.0)
+        reg = tf.keras.regularizers.l2(1e-5)
         filters = input._keras_shape[-1]
 
         ones = Conv2D(filters//2, 1, activation=activation, padding=padding, kernel_initializer=init,
@@ -70,11 +63,11 @@ class myUnet(object):
 
         return bottle_neck, pooled
 
-    def __pool_layer(self, input, filters, block_num, drop_prob=.3, activation='linear', padding='same',
+    def __pool_layer(self, input, filters, block_num, drop_prob=.2, activation='linear', padding='same',
                      init='he_uniform'):
         block_num = str(block_num)
         prefix = 'conv' + block_num + '_'
-        reg = tf.keras.regularizers.l2(.0)
+        reg = tf.keras.regularizers.l2(1e-5)
 
         conv1 = Conv2D(filters, 3, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '1')(input)
@@ -83,10 +76,11 @@ class myUnet(object):
         conv1 = Conv2D(filters, 3, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '2')(conv1)
         conv1 = LeakyReLU()(conv1)
-        conv1 = BatchNormalization()(conv1)
 
         # TODO: Try AveragePooling, or strided convolutions
-        pool1 = MaxPooling2D(pool_size=(2, 2), name='pool' + block_num)(conv1)
+        pool1 = AveragePooling2D(pool_size=(2, 2), name='pool' + block_num)(conv1)
+        conv1 = BatchNormalization()(conv1)
+
         if drop_prob is not None:
             pool1 = Dropout(drop_prob, name='dropdown' + block_num)(pool1)
         return conv1, pool1
@@ -96,18 +90,15 @@ class myUnet(object):
         filters = prepooled._keras_shape[-1]
         block_num = str(block_num)
         prefix = 'upconv' + block_num + '_'
-        reg = tf.keras.regularizers.l2(.0)
+        reg = tf.keras.regularizers.l2(1e-5)
 
-        # conv1 = Deconv2D(filters=filters, kernel_size=(3, 3), strides=2, padding=padding, activation=activation, kernel_initializer=init, kernel_regularizer=reg, name=prefix + '1')(pooled)
-        # up1 = UpSampling2D(size=(2, 2), name='upsample' + block_num)(pooled)
-        #conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
-        #               kernel_regularizer=reg, name=prefix + '1')(up1)
         conv1 = Conv2DTranspose(filters, kernel_size=(4, 4), strides=2, padding=padding, activation=activation,
                                 kernel_initializer=init, kernel_regularizer=reg, name=prefix + '1')(pooled)
-        conv1 = LeakyReLU()(conv1)
-        conv1 = BatchNormalization()(conv1)
 
         merged = concatenate([prepooled, conv1], axis=3, name='merge' + block_num)
+        merged = LeakyReLU()(merged)
+        merged = BatchNormalization()(merged)
+
         conv1 = Conv2D(filters=filters, kernel_size=2, activation=activation, padding=padding, kernel_initializer=init,
                        kernel_regularizer=reg, name=prefix + '2')(merged)
         conv1 = LeakyReLU()(conv1)
@@ -124,7 +115,7 @@ class myUnet(object):
 
     def __get_unet(self):
         inputs = Input((self.img_rows, self.img_cols, 4))  # (b, 224, 224, 1)
-        filters = 16  # 64
+        filters = 18  # 64
 
         stem = inputs
         conv224, p112 = self.__pool_layer(stem, filters=filters, block_num=1)  # (b, 112, 112, 64)
@@ -147,10 +138,12 @@ class myUnet(object):
 
         model = Model(inputs=inputs, outputs=masked_predictions)
         model.compile(optimizer=Adam(lr=1e-3), loss=metrics.keras_dice_coef_loss(),
-                      metrics=[metrics.category_dice_score(1),
-                               metrics.category_dice_score(2),
-                               metrics.category_dice_score(3)])
+                      metrics=[metrics.wt_dice,
+                               metrics.tc_dice,
+                               metrics.et_dice])
 
+        model.summary()
+        plot_model(model, self.config.results_path + '/model.png', show_shapes=True, show_layer_names=True)
         return model
 
     def train(self, train_gen, val_gen):
@@ -175,12 +168,13 @@ class myUnet(object):
                                       epochs=9000,
                                       verbose=1,
                                       callbacks=callbacks)
+
         return history
 
 
 if __name__ == '__main__':
     config = configuration.Config()
-    net = myUnet(config)
+    net = Unet(config)
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
@@ -188,7 +182,7 @@ if __name__ == '__main__':
 
     height, width, slices = brats.get_dims()
     train_datagen = SliceGenerator(brats, slices, train_ids, dim=(config.slice_batch_size, height, width, 4),
-                                   config=config, augmentor=augmentation.train_augmentation, use_all_cross_sections=False)
+                                   config=config, augmentor=augmentation.train_augmentation, use_all_cross_sections=True)
     val_datagen = SliceGenerator(brats, slices, val_ids, dim=(config.slice_batch_size, height, width, 4), config=config,
                                  augmentor=augmentation.test_augmentation, use_all_cross_sections=False)
 

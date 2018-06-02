@@ -198,13 +198,13 @@ def evaluate(model, generator, multiview_fusion):
 # For testing
 if __name__ == '__main__':
     import config as configuration
-    from unet import myUnet
+    from unet import Unet
     from read_data import BRATSReader
     from evaluation_generator import EvalGenerator
     from keras.models import load_model
 
     config = configuration.Config()
-    net = myUnet(config)
+    net = Unet(config)
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
