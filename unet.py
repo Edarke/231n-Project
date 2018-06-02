@@ -202,7 +202,7 @@ class myUnet(object):
     def evalute_train_and_val_set(self, train_gen, val_gen, multiview_fusion):
         model = self.model  # Make sure unet.hdf5 is in the current directory
         scores, scores_crf = eval.evaluate(model, train_gen, multiview_fusion)
-        print('MultiView Fusion:', multiview_fusi)
+        print('MultiView Fusion:', multiview_fusion)
         print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
         print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
         scores, scores_crf = eval.evaluate(model, val_gen, multiview_fusion)
