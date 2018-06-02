@@ -24,7 +24,6 @@ K.set_floatx('float32')
 
 
 class myUnet(object):
-
     def __init__(self, config):
         self.config = config
         self.img_rows = 224
@@ -176,6 +175,15 @@ class myUnet(object):
                                       verbose=1,
                                       callbacks=callbacks)
         return history
+
+    def evalute_train_and_val_set(self, train_gen, val_gen):
+        model = self.model  # Make sure unet.hdf5 is in the current directory
+        scores, scores_crf = eval.evaluate(model, train_gen)
+        print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
+        scores, scores_crf = eval.evaluate(model, val_gen)
+        print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
 
 
 if __name__ == '__main__':

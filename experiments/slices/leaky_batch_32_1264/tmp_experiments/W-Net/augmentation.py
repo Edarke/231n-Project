@@ -145,7 +145,7 @@ def test_augmentation(sample, label):
     return sample, label
 
 
-def preprocess(data, labels, pad_batch=False):
+def preprocess(data, labels):
     """
     :param data: (batch, height, width, depth)
     :param labels:  (batch, height, width, depth)
@@ -157,24 +157,8 @@ def preprocess(data, labels, pad_batch=False):
     # Crop or pad to 224x224x224
     h_diff = 224 - H
     w_diff = 224 - W
-    b_diff = 224 - N
 
-    if pad_batch:
-        if b_diff > 0:
-            pad_top = b_diff // 2
-            pad_bottom = b_diff // 2 + b_diff % 2
-            pad_dims = [(pad_top, pad_bottom)]
-        elif b_diff < 0:
-            slice_top = -1 * b_diff // 2
-            slice_bottom = -1 * (b_diff // 2 - b_diff % 2)
-            data = data[:, slice_top:-slice_bottom, :, :]
-            labels = labels[:, slice_top:-slice_bottom, :, :]
-            pad_dims = [(0, 0)]
-        else:
-            pad_dims = [(0, 0)]
-    else:
-        pad_dims = [(0, 0)]
-
+    pad_dims = [(0, 0)]
     if h_diff > 0:
         pad_top = h_diff // 2
         pad_bottom = h_diff // 2 + h_diff % 2
@@ -184,8 +168,6 @@ def preprocess(data, labels, pad_batch=False):
         slice_bottom = -1 * (h_diff // 2 - h_diff % 2)
         data = data[:, slice_top:-slice_bottom, :, :]
         labels = labels[:, slice_top:-slice_bottom, :, :]
-        pad_dims.append((0, 0))
-    else :
         pad_dims.append((0, 0))
 
     if w_diff > 0:
@@ -198,70 +180,12 @@ def preprocess(data, labels, pad_batch=False):
         data = data[:, :, slice_left:-slice_right, :]
         labels = labels[:, :, slice_left:-slice_right, :]
         pad_dims.append((0, 0))
-    else :
-        pad_dims.append((0, 0))
 
     pad_dims.append((0, 0))
 
     data = np.pad(data, pad_dims, mode='constant', constant_values=0)
     labels = np.pad(labels, pad_dims, mode='constant', constant_values=0)
     return data, labels
-
-def preprocess3d(data, labels):
-    """
-    :param data: (batch, height, width, depth, channels)
-    :param labels:  (batch, height, width, depth)
-    :return: tuple of processed tuple list data, and labels
-    """
-
-    N, H, W, D, C = data.shape
-
-    # Crop or pad to 224x224x224
-    h_diff = 224 - H
-    w_diff = 224 - W
-    d_diff = 128 - D
-
-    pad_dims = [(0, 0)]
-    if h_diff > 0:
-        pad_top = h_diff // 2
-        pad_bottom = h_diff // 2 + h_diff % 2
-        pad_dims.append((pad_top, pad_bottom))
-    elif h_diff < 0:
-        slice_top = -1 * h_diff // 2
-        slice_bottom = -1 * (h_diff // 2 - h_diff % 2)
-        data = data[:, slice_top:-slice_bottom, :, :, :]
-        labels = labels[:, slice_top:-slice_bottom, :, :, :]
-        pad_dims.append((0, 0))
-
-    if w_diff > 0:
-        pad_left = w_diff // 2
-        pad_right = w_diff // 2 + w_diff % 2
-        pad_dims.append((pad_left, pad_right))
-    elif w_diff < 0:
-        slice_left = -1 * w_diff // 2
-        slice_right = -1 * (w_diff // 2 - w_diff % 2)
-        data = data[:, :, slice_left:-slice_right, :, :]
-        labels = labels[:, :, slice_left:-slice_right, :, :]
-        pad_dims.append((0, 0))
-
-    if d_diff > 0:
-        pad_up = d_diff // 2
-        pad_down = d_diff // 2 + d_diff % 2
-        pad_dims.append((pad_up, pad_down))
-    elif d_diff < 0:
-        d_diff *= -1
-        slice_up = d_diff // 2
-        slice_down =  (d_diff // 2 + d_diff % 2)
-        data = data[:, :, :, slice_up:-slice_down, :]
-        labels = labels[:, :, :, slice_up:-slice_down, :]
-        pad_dims.append((0, 0))
-
-    pad_dims.append((0, 0))
-
-    data = np.pad(data, pad_dims, mode='constant', constant_values=0)
-    labels = np.pad(labels, pad_dims, mode='constant', constant_values=0)
-    return data, labels
-
 
 
 if __name__ == '__main__':
@@ -295,4 +219,3 @@ if __name__ == '__main__':
     scipy.misc.toimage(slice, mode='L').show(title='data')
     scipy.misc.toimage(label * 255, mode='L').show(title='augmented label')
     scipy.misc.toimage(orig * 255, mode='L').show(title='original label')
-

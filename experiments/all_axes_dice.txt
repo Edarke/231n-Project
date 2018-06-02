@@ -1,0 +1,2 @@
+Val Dice Scores (No CRF)  WT:0.892791  TC:0.811771  ET:0.743762 (multiview fusion)
+Val Dice Scores (No CRF)  WT:0.884898  TC:0.807122  ET:0.745442

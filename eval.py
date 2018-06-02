@@ -168,7 +168,7 @@ def np_dice_score(y_true, y_pred, category):
     return np.sum(intersection / union, 0)
 
 
-def evaluate(model, generator, multiview_fusion):
+def evaluate(model, generator, multiview_fusion, use_crf=False):
     scores = np.zeros(3)
     crf_scores = np.zeros_like(scores)
 
@@ -176,39 +176,65 @@ def evaluate(model, generator, multiview_fusion):
     for i, (input, label) in tqdm(enumerate(generator), total=len(generator), ncols=60):
         probs = model.predict_on_batch(input)
         if multiview_fusion:
-            view = model.predict_on_batch(np.transpose(input, [1, 0, 2, 3]))
-            probs += np.transpose(view, [0, 1, 2, 3])
-            view = model.predict_on_batch(np.transpose(input, [2, 1, 0, 3]))
-            probs += np.transpose(view, [0, 1, 2, 3])
+            view = np.transpose(input, [1, 0, 2, 3])
+            view = model.predict_on_batch(view)
+            probs += np.transpose(view, [1, 0, 2, 3])
+
+            view = np.transpose(input, [2, 1, 0, 3])
+            view = model.predict_on_batch(view)
+            probs += np.transpose(view, [2, 1, 0, 3])
+
+            probs /= 3
 
         scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
-        probs = crf(input, probs)
-        crf_scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+        if use_crf:
+            probs = crf(input, probs)
+            crf_scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
 
-    scores = scores / len(generator)
-    crf_scores = crf_scores / len(generator)
+    return scores / len(generator), crf_scores / len(generator)
 
-    return scores, crf_scores
+
+def evalute_train_and_val_set(model, train_gen, val_gen, test_gen, multiview_fusion):
+    if train_gen is not None:
+        scores, scores_crf = evaluate(model, train_gen, multiview_fusion)
+        print('Training Dice Scores (No CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores[0], scores[1], scores[2]))
+        print('Training Dice Scores (With CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores_crf[0], scores_crf[1], scores_crf[2]))
+    if val_gen is not None:
+        scores, scores_crf = evaluate(model, val_gen, multiview_fusion)
+        print('Validation Dice Scores (No CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores[0], scores[1], scores[2]))
+        print('Validation Dice Scores (With CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores_crf[0], scores_crf[1], scores_crf[2]))
+    if test_gen is not None:
+        scores, scores_crf = evaluate(model, test_gen, multiview_fusion)
+        print('Validation Dice Scores (No CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores[0], scores[1], scores[2]))
+        print('Validation Dice Scores (With CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores_crf[0], scores_crf[1], scores_crf[2]))
 
 
 # For testing
 if __name__ == '__main__':
     import config as configuration
-    from unet import myUnet
     from read_data import BRATSReader
     from evaluation_generator import EvalGenerator
     from keras.models import load_model
+    import metrics
+    import keras
 
     config = configuration.Config()
-    net = load_model('unet.hdf5')
+
+    # Super hacky way to load weights and architecture. Absolutely not ok to run training or keras metrics on this.
+    keras.losses.keras_dice_coef_loss_fn = metrics.keras_dice_coef_loss()
+    keras.metrics.hard_dice = metrics.wt_dice
+    keras.metrics.wt_dice = metrics.wt_dice
+    keras.metrics.et_dice = metrics.et_dice
+    keras.metrics.tc_dice = metrics.tc_dice
+    net = load_model("unet.hdf5")
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
     train_ids, val_ids, test_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = EvalGenerator(brats, train_ids, dim=(height, width, 4))
+    #train_datagen = EvalGenerator(brats, train_ids, dim=(height, width, 4))
     val_datagen = EvalGenerator(brats, val_ids, dim=(height, width, 4))
 
-    net.evalute_train_and_val_set(train_datagen, val_datagen, True)
-    net.evalute_train_and_val_set(train_datagen, val_datagen, False)
+    evalute_train_and_val_set(net, None, val_datagen, None, True)
+    evalute_train_and_val_set(net, None, val_datagen, None, False)

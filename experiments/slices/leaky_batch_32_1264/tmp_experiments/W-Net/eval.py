@@ -204,7 +204,7 @@ if __name__ == '__main__':
     from keras.models import load_model
 
     config = configuration.Config()
-    net = myUnet(config)
+    net = load_model('unet.hdf5')
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
