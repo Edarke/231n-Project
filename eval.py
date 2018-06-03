@@ -168,24 +168,31 @@ def np_dice_score(y_true, y_pred, category):
     return np.sum(intersection / union, 0)
 
 
-def evaluate(model, generator, multiview_fusion, use_crf=False):
+def evaluate(axial_models, multi_models, generator, use_crf=False):
     scores = np.zeros(3)
     crf_scores = np.zeros_like(scores)
 
     print('Evaluating Model')
     for i, (input, label) in tqdm(enumerate(generator), total=len(generator), ncols=60):
-        probs = model.predict_on_batch(input)
-        if multiview_fusion:
+        axial_probs = np.zeros_like(input)
+        for model in axial_models:
+            axial_probs += model.predict_on_batch(input)
+
+        multi_probs = np.zeros_like(input)
+        for multi in multi_models:
+            probs = multi.predict_on_batch(input)
+
             view = np.transpose(input, [1, 0, 2, 3])
-            view = model.predict_on_batch(view)
+            view = multi.predict_on_batch(view)
             probs += np.transpose(view, [1, 0, 2, 3])
 
             view = np.transpose(input, [2, 1, 0, 3])
-            view = model.predict_on_batch(view)
+            view = multi.predict_on_batch(view)
             probs += np.transpose(view, [2, 1, 0, 3])
 
-            probs /= 3
+            multi_probs += probs / 3
 
+        probs = (axial_probs * len(axial_models) + multi_probs * len(multi_models)) / (len(axial_models) + len(multi_models))
         scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
         if use_crf:
             probs = crf(input, probs)
@@ -194,19 +201,19 @@ def evaluate(model, generator, multiview_fusion, use_crf=False):
     return scores / len(generator), crf_scores / len(generator)
 
 
-def evalute_train_and_val_set(model, train_gen, val_gen, test_gen, multiview_fusion):
+def evalute_train_and_val_set(model, multi, train_gen, val_gen, test_gen):
     if train_gen is not None:
-        scores, scores_crf = evaluate(model, train_gen, multiview_fusion)
-        print('Training Dice Scores (No CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores[0], scores[1], scores[2]))
-        print('Training Dice Scores (With CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores_crf[0], scores_crf[1], scores_crf[2]))
+        scores, scores_crf = evaluate(model, multi, train_gen)
+        print('Training Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Training Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
     if val_gen is not None:
-        scores, scores_crf = evaluate(model, val_gen, multiview_fusion)
-        print('Validation Dice Scores (No CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores[0], scores[1], scores[2]))
-        print('Validation Dice Scores (With CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores_crf[0], scores_crf[1], scores_crf[2]))
+        scores, scores_crf = evaluate(model, multi, val_gen)
+        print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
     if test_gen is not None:
-        scores, scores_crf = evaluate(model, test_gen, multiview_fusion)
-        print('Validation Dice Scores (No CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores[0], scores[1], scores[2]))
-        print('Validation Dice Scores (With CRF, multiview %r)  WT:%f  TC:%f  ET:%f' % (multiview_fusion, scores_crf[0], scores_crf[1], scores_crf[2]))
+        scores, scores_crf = evaluate(model, multi, test_gen)
+        print('Validation Dice Scores (No CRF)  WT:%f  TC:%f  ET:%f' % (scores[0], scores[1], scores[2]))
+        print('Validation Dice Scores (With CRF)  WT:%f  TC:%f  ET:%f' % (scores_crf[0], scores_crf[1], scores_crf[2]))
 
 
 # For testing
@@ -226,7 +233,8 @@ if __name__ == '__main__':
     keras.metrics.wt_dice = metrics.wt_dice
     keras.metrics.et_dice = metrics.et_dice
     keras.metrics.tc_dice = metrics.tc_dice
-    net = load_model("unet.hdf5")
+    axial_modals = [load_model("unet.hdf5")]
+    multi_modals = [load_model('all_axis.hdf5')]
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
@@ -236,5 +244,4 @@ if __name__ == '__main__':
     #train_datagen = EvalGenerator(brats, train_ids, dim=(height, width, 4))
     val_datagen = EvalGenerator(brats, val_ids, dim=(height, width, 4))
 
-    evalute_train_and_val_set(net, None, val_datagen, None, True)
-    evalute_train_and_val_set(net, None, val_datagen, None, False)
+    evalute_train_and_val_set(axial_modals, multi_modals, None, val_datagen, None)
