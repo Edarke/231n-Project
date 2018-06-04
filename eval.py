@@ -155,7 +155,7 @@ def np_dice_score(y_true, y_pred, category):
         return wt.astype(np.float32)
 
     y_pred = np.cumsum(y_pred, axis=-1)  # (b, h, w, c)
-    y_pred = (y_pred >= .5).astype(dtype=np.float32)  # (b, h, w, c)
+    y_pred = (y_pred >= .6).astype(dtype=np.float32)  # (b, h, w, c)
     y_pred = np.argmax(y_pred, axis=-1)  # (b, h, w)
 
     smooth = 1e-8
@@ -168,7 +168,7 @@ def np_dice_score(y_true, y_pred, category):
     return np.sum(intersection / union, 0)
 
 
-def evaluate(axial_models, multi_models, generator, use_crf=False):
+def evaluate(axial_models, multi_models, generator, use_crf=True):
     scores = np.zeros(3)
     crf_scores = np.zeros_like(scores)
 
@@ -234,7 +234,7 @@ if __name__ == '__main__':
     keras.metrics.et_dice = metrics.et_dice
     keras.metrics.tc_dice = metrics.tc_dice
     axial_modals = [load_model("unet.hdf5")]
-    multi_modals = [load_model('all_axis.hdf5')]
+    multi_modals = []
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))

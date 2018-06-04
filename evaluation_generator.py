@@ -51,7 +51,7 @@ class EvalGenerator(object):
         data = np.transpose(data, axes=[2, 0, 1, 3])
         labels = np.transpose(np.expand_dims(labels, -1), axes=[2, 0, 1, 3])
 
-        data, labels = preprocess(data, labels, True)
+        data, labels = preprocess(data, labels, False)
         labels = np.squeeze(labels, -1)
 
         data = data.astype(np.float16)

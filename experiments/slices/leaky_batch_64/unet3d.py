@@ -9,7 +9,7 @@ from keras.optimizers import *
 from keras import backend as K
 import config as configuration
 import metrics
-from keras_slice_generator import SliceGenerator, SliceGenerator3D
+from keras_slice_generator import SliceGenerator, VolumeGenerator
 from read_data import BRATSReader
 import keras.metrics
 from predict_callback import PredictCallback
@@ -119,8 +119,8 @@ if __name__ == '__main__':
     train_ids, val_ids, test_ids = brats.get_case_ids(config.brats_val_split)
 
     height, width, slices = brats.get_dims()
-    train_datagen = SliceGenerator3D(brats, slices, train_ids, dim=(1, height, width, slices, 4), config=config, augmentor=None)
-    val_datagen = SliceGenerator3D(brats, slices, val_ids, dim=(1, height, width, slices, 4), config=config, augmentor=None)
+    train_datagen = VolumeGenerator(brats, slices, train_ids, dim=(1, height, width, slices, 4), config=config, augmentor=None)
+    val_datagen = VolumeGenerator(brats, slices, val_ids, dim=(1, height, width, slices, 4), config=config, augmentor=None)
 
     myunet = UNet3D(config)
     myunet.train(train_datagen, val_datagen)
