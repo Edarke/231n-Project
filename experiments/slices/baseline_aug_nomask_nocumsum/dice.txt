@@ -1,0 +1,6 @@
+np with cumsum
+Validation Dice Scores (No CRF)  WT:0.866434  TC:0.785134  ET:0.673698
+Validation Dice Scores (With CRF)  WT:0.869826  TC:0.786709  ET:0.703876
+ArgMax
+Validation Dice Scores (No CRF)  WT:0.868462  TC:0.786442  ET:0.677452
+Validation Dice Scores (With CRF)  WT:0.869960  TC:0.786263  ET:0.703801

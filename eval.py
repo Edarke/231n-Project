@@ -116,26 +116,6 @@ def crf(inputs_all, predictions_all):
 
         d.setUnaryEnergy(unary.reshape([4, -1]))
 
-        # This potential penalizes small pieces of segmentation that are
-        # spatially isolated -- enforces more spatially consistent segmentations
-        #   feats = create_pairwise_gaussian(sdims=(10, 10), shape=inputs.shape[:2])
-
-        #   d.addPairwiseEnergy(feats, compat=2,
-        #                       kernel=dcrf.DIAG_KERNEL,
-        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
-
-        #   # This creates the channel-dependent features --
-        #   # because the segmentation that we get from CNN are too coarse
-        #   # and we can use local channel features to refine them
-        #   # Not sure how applicable this is to MRIs; usually is color-dependent features
-        #   # Where the variation in color is more significant than the variation in the modalities
-        #   feats = create_pairwise_bilateral(sdims=(10, 10), schan=(0.01, 0.01, 0.01, 0.01),
-        #                                     img=inputs, chdim=2)
-
-        #   d.addPairwiseEnergy(feats, compat=10,
-        #                       kernel=dcrf.DIAG_KERNEL,
-        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
-
         d.addPairwiseGaussian(sxy=1, compat=4)
 
         Q = d.inference(5)  # Number of inference steps
@@ -145,18 +125,21 @@ def crf(inputs_all, predictions_all):
         res = Q.reshape(predictions.shape)
         res = res.transpose([1, 2, 0])
         predictions_all[i] = res
+    # Output probability distribution
+    assert np.alltrue(predictions_all >= 0)
+    predictions_all = predictions_all / np.sum(predictions_all, -1, keepdims=True)
     return predictions_all
 
 
-def np_dice_score(y_true, y_pred, category):
+def np_dice_score(y_true, y_pred, category, is_cumulative):
     def to_binary(y):
         y = y.reshape([-1])  # (b, w*h)
         wt = y >= category
         return wt.astype(np.float32)
 
-    y_pred = y_pred / np.sum(y_pred, -1, keepdims=True)
-    y_pred = np.cumsum(y_pred, axis=-1)  # (b, h, w, c)
-    y_pred = (y_pred >= .5).astype(dtype=np.float32)  # (b, h, w, c)
+    if is_cumulative:
+        y_pred = np.cumsum(y_pred, axis=-1)  # (b, h, w, c)
+        y_pred = (y_pred >= .5).astype(dtype=np.float32)  # (b, h, w, c)
     y_pred = np.argmax(y_pred, axis=-1)  # (b, h, w)
 
     smooth = 1e-8
@@ -169,7 +152,7 @@ def np_dice_score(y_true, y_pred, category):
     return np.sum(intersection / union, 0)
 
 
-def evaluate(axial_models, multi_models, generator, use_crf=True):
+def evaluate(axial_models, multi_models, generator, is_cumulative=False, use_crf=True):
     scores = np.zeros(3)
     crf_scores = np.zeros_like(scores)
 
@@ -194,10 +177,10 @@ def evaluate(axial_models, multi_models, generator, use_crf=True):
             multi_probs += probs / 3
 
         probs = (axial_probs * len(axial_models) + multi_probs * len(multi_models)) / (len(axial_models) + len(multi_models))
-        scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+        scores += [np_dice_score(label, probs, 1, is_cumulative), np_dice_score(label, probs, 2, is_cumulative), np_dice_score(label, probs, 3, is_cumulative)]
         if use_crf:
             probs = crf(input, probs)
-            crf_scores += [np_dice_score(label, probs, 1), np_dice_score(label, probs, 2), np_dice_score(label, probs, 3)]
+            crf_scores += [np_dice_score(label, probs, 1, is_cumulative), np_dice_score(label, probs, 2, is_cumulative), np_dice_score(label, probs, 3, is_cumulative)]
 
     return scores / len(generator), crf_scores / len(generator)
 
@@ -234,8 +217,8 @@ if __name__ == '__main__':
     keras.metrics.wt_dice = metrics.wt_dice
     keras.metrics.et_dice = metrics.et_dice
     keras.metrics.tc_dice = metrics.tc_dice
-    axial_modals = [load_model("unet.hdf5")]
-    multi_modals = []
+    axial_modals = []
+    multi_modals = [load_model("unet.hdf5")]
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))

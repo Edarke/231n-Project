@@ -1,0 +1,2 @@
+Validation Dice Scores (No CRF)  WT:0.885475  TC:0.807940  ET:0.722097
+Validation Dice Scores (With CRF)  WT:0.884532  TC:0.809067  ET:0.735956
