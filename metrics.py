@@ -51,8 +51,8 @@ def keras_dice_coef_loss(smooth=1e-8):
         y_true = tf.stack([y0, y1, y2], axis=-1)
 
         y2 = y_pred[:, 2]
-        y1 = y_pred[:, 1]
-        y0 = y_pred[:, 0]
+        y1 = y_pred[:, 1] + y2
+        y0 = y_pred[:, 0] + y1
         y_pred = tf.stack([y0, y1, y2], axis=-1)
 
         intersection = K.sum(y_true * y_pred, axis=0)  # (3)
@@ -91,8 +91,8 @@ def category_dice_score(category):
             wt = y >= category
             return tf.cast(wt, tf.float32)
 
-        #y_pred = tf.cumsum(y_pred, axis=-1, exclusive=False, reverse=False)
-        #y_pred = tf.cast(y_pred >= .5, dtype=tf.float32)
+        y_pred = tf.cumsum(y_pred, axis=-1, exclusive=False, reverse=False)
+        y_pred = tf.cast(y_pred >= .5, dtype=tf.float32)
         y_pred = tf.argmax(y_pred, axis=-1)
 
         smooth = 1e-8

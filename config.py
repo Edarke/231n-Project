@@ -18,7 +18,7 @@ class Config(object):
         self.learning_rate = .001
         self.epochs = 100
         self.patience = 10
-        self.slice_batch_size = 16
+        self.slice_batch_size = 32
         self.volume_batch_size = 1
         self.freeze_resnet = False
         self.atlas_positive_freq = .0016779066593665076
