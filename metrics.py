@@ -58,7 +58,6 @@ def keras_dice_coef_loss(smooth=1e-8):
         intersection = K.sum(y_true * y_pred, axis=0)  # (3)
         union = K.sum(K.square(y_true), axis=0) + K.sum(K.square(y_pred), axis=0)  # (3)
         return K.mean((2. * intersection + smooth) / (union + smooth))  # Mean dice loss
-        return s
 
     def keras_dice_coef_loss_fn(y_true, y_pred):
         '''

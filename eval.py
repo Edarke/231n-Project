@@ -10,6 +10,7 @@ import pydensecrf.densecrf as dcrf
 from pydensecrf.utils import compute_unary, create_pairwise_bilateral, \
     create_pairwise_gaussian, softmax_to_unary, unary_from_softmax
 
+
 _true_color = np.array([[[255, 0, 0, 75]]])
 _prediction_color = np.array([[[0, 255, 0, 75]]])
 _background_color = np.array([[[63, 127, 255, 100]]])
@@ -116,6 +117,26 @@ def crf(inputs_all, predictions_all):
 
         d.setUnaryEnergy(unary.reshape([4, -1]))
 
+        # This potential penalizes small pieces of segmentation that are
+        # spatially isolated -- enforces more spatially consistent segmentations
+        #   feats = create_pairwise_gaussian(sdims=(10, 10), shape=inputs.shape[:2])
+
+        #   d.addPairwiseEnergy(feats, compat=2,
+        #                       kernel=dcrf.DIAG_KERNEL,
+        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
+
+        #   # This creates the channel-dependent features --
+        #   # because the segmentation that we get from CNN are too coarse
+        #   # and we can use local channel features to refine them
+        #   # Not sure how applicable this is to MRIs; usually is color-dependent features
+        #   # Where the variation in color is more significant than the variation in the modalities
+        #   feats = create_pairwise_bilateral(sdims=(10, 10), schan=(0.01, 0.01, 0.01, 0.01),
+        #                                     img=inputs, chdim=2)
+
+        #   d.addPairwiseEnergy(feats, compat=10,
+        #                       kernel=dcrf.DIAG_KERNEL,
+        #                       normalization=dcrf.NORMALIZE_SYMMETRIC)
+
         d.addPairwiseGaussian(sxy=1, compat=4)
 
         Q = d.inference(5)  # Number of inference steps
@@ -125,9 +146,7 @@ def crf(inputs_all, predictions_all):
         res = Q.reshape(predictions.shape)
         res = res.transpose([1, 2, 0])
         predictions_all[i] = res
-    # Output probability distribution
-    assert np.alltrue(predictions_all >= 0)
-    predictions_all = predictions_all / np.sum(predictions_all, -1, keepdims=True)
+    predictions_all = predictions_all / np.sum(predictions_all, axis=-1, keepdims=True)
     return predictions_all
 
 
@@ -152,7 +171,7 @@ def np_dice_score(y_true, y_pred, category, is_cumulative):
     return np.sum(intersection / union, 0)
 
 
-def evaluate(axial_models, multi_models, generator, is_cumulative=False, use_crf=True):
+def evaluate(axial_models, multi_models, generator, is_cumulative=True, use_crf=False):
     scores = np.zeros(3)
     crf_scores = np.zeros_like(scores)
 
@@ -176,7 +195,7 @@ def evaluate(axial_models, multi_models, generator, is_cumulative=False, use_crf
 
             multi_probs += probs / 3
 
-        probs = (axial_probs * len(axial_models) + multi_probs * len(multi_models)) / (len(axial_models) + len(multi_models))
+        probs = (axial_probs + multi_probs) / (len(axial_models) + len(multi_models))
         scores += [np_dice_score(label, probs, 1, is_cumulative), np_dice_score(label, probs, 2, is_cumulative), np_dice_score(label, probs, 3, is_cumulative)]
         if use_crf:
             probs = crf(input, probs)
@@ -208,6 +227,7 @@ if __name__ == '__main__':
     from keras.models import load_model
     import metrics
     import keras
+    from unet import Unet
 
     config = configuration.Config()
 
@@ -217,8 +237,12 @@ if __name__ == '__main__':
     keras.metrics.wt_dice = metrics.wt_dice
     keras.metrics.et_dice = metrics.et_dice
     keras.metrics.tc_dice = metrics.tc_dice
-    axial_modals = []
-    multi_modals = [load_model("unet.hdf5")]
+
+    stef = Unet(config).model
+    m1264 = load_model("1264.hdf5")
+    b64 = Unet(config, weight_file='batch64.hdf5').model
+    axial_modals = [stef, m1264, b64]
+    multi_modals = []
 
     brats = BRATSReader(use_hgg=True, use_lgg=True)
     # print(brats.get_mean_dev(.15, 't1ce'))
