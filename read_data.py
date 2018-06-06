@@ -171,8 +171,10 @@ class ATLASReader(object):
 class BRATSReader(AbstractReader):
     def __init__(self, use_hgg=True, use_lgg=True):
         self.directory = datasets['brats']
-        self.files = self.get_files(use_hgg, use_lgg)
+        self.files = self.get_files(True, True)
         self.modalities = ['t1ce', 'flair', 't1', 't2']
+        self.use_hgg = use_hgg
+        self.use_lgg = use_lgg
 
     def get_dims(self):
         # Get dimensionality of first example
@@ -195,7 +197,14 @@ class BRATSReader(AbstractReader):
 
         random.shuffle(training_ids)
 
-        return training_ids, validation_ids, testing_ids
+        return self.__filter(training_ids), self.__filter(validation_ids), self.__filter(testing_ids)
+
+    def __filter(self, ids):
+        if self.use_lgg and self.use_hgg:
+            return ids
+        elif self.use_hgg:
+            return [i for i in ids if 'HGG' in self.files[i][0]]
+        return [i for i in ids if 'LGG' in self.files[i][0]]
 
     def get_case(self, case_id):
         ret_files = {}
