@@ -4,12 +4,12 @@ Validation Dice Scores (With CRF)  WT:0.000000  TC:0.000000  ET:0.000000
 
 
 HGG
-Validation Dice Scores (No CRF)  WT:0.874979  TC:0.888231  ET:0.822984
+Validation Dice Scores (No CRF)  WT:0.880410  TC:0.860574  ET:0.831583
 Validation Dice Scores (With CRF)  WT:0.000000  TC:0.000000  ET:0.000000
 
 
 LGG
-Validation Dice Scores (No CRF)  WT:0.933259  TC:0.822483  ET:0.597228
+Validation Dice Scores (No CRF)  WT:0.917892  TC:0.729304  ET:0.505636
 Validation Dice Scores (With CRF)  WT:0.000000  TC:0.000000  ET:0.000000
 
 
